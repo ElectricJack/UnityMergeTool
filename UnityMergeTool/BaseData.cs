@@ -9,13 +9,14 @@ namespace UnityMergeTool
     {
         public string                                         typeName;
         public DiffableProperty<ulong>                        fileId                      = new DiffableProperty<ulong>(); // Assigned from anchor id of root node in document
-
+        public DiffableProperty<ulong>                        gameObjectId                = new DiffableProperty<ulong>(); // Not every node has this but enough do it's worth keeping in base
         public DiffableProperty<int>                          objectHideFlags             = new DiffableProperty<int>();
         public DiffableProperty<int>                          serializedVersion           = new DiffableProperty<int>();
         public DiffableProperty<ulong>                        correspondingSourceObjectId = new DiffableProperty<ulong>();
         public DiffableProperty<ulong>                        prefabInstanceId            = new DiffableProperty<ulong>();
         public DiffableProperty<ulong>                        prefabAssetId               = new DiffableProperty<ulong>();
 
+        public GameObjectData                                 gameObjectRef = null;
         
         public Dictionary<string, DiffableProperty<YamlNode>> additionalData = new Dictionary<string, DiffableProperty<YamlNode>>();
         protected List<string>                                _existingKeys = new List<string>();
@@ -25,7 +26,9 @@ namespace UnityMergeTool
         public abstract string ScenePath { get; }
         public abstract bool Diff(object previous);
         public abstract void Merge(object thiers, ref string conflictReport, bool takeTheirs = true);
-        
+
+        public abstract string LogString();
+
         
         protected void LoadBase(YamlMappingNode mappingNode, ulong fileId, string typeName)
         {
@@ -34,12 +37,13 @@ namespace UnityMergeTool
             
             _existingKeys.Clear();
             
-            LoadIntProperty(mappingNode, "m_ObjectHideFlags", objectHideFlags);
-            LoadIntProperty(mappingNode, "serializedVersion", serializedVersion);
+            LoadFileIdProperty (mappingNode, "m_GameObject",    gameObjectId);
+            LoadIntProperty    (mappingNode, "m_ObjectHideFlags", objectHideFlags);
+            LoadIntProperty    (mappingNode, "serializedVersion", serializedVersion);
 
-            LoadFileIdProperty(mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
-            LoadFileIdProperty(mappingNode, "m_PrefabInstance", prefabInstanceId);
-            LoadFileIdProperty(mappingNode, "m_PrefabAsset", prefabAssetId);
+            LoadFileIdProperty (mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
+            LoadFileIdProperty (mappingNode, "m_PrefabInstance", prefabInstanceId);
+            LoadFileIdProperty (mappingNode, "m_PrefabAsset", prefabAssetId);
         }
         protected void LoadYamlProperties(YamlMappingNode mappingNode)
         {
@@ -117,6 +121,7 @@ namespace UnityMergeTool
         {
             _wasModified = false;
             _wasModified |= DiffProperty(fileId,            previous.fileId);
+            _wasModified |= DiffProperty(gameObjectId,      previous.gameObjectId);
             _wasModified |= DiffProperty(objectHideFlags,   previous.objectHideFlags);
             _wasModified |= DiffProperty(serializedVersion, previous.serializedVersion);
 
@@ -164,7 +169,7 @@ namespace UnityMergeTool
 
         protected void DiffYamlProperties(object previousObj)
         {
-            MonoBehaviorData previous = previousObj as MonoBehaviorData;
+            BaseData previous = previousObj as BaseData;
             
             foreach (var pair in additionalData)
             {
@@ -187,16 +192,17 @@ namespace UnityMergeTool
         protected void MergeBase(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
         {
             var thiers = thiersObj as BaseData;
-            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,            thiers.fileId, conflictReportLines, takeTheirs);
-            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,   thiers.objectHideFlags, conflictReportLines, takeTheirs);
+            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,                      thiers.fileId,                      conflictReportLines, takeTheirs);
+            gameObjectId.value                = MergeProperties(nameof(gameObjectId),               gameObjectId,                thiers.gameObjectId,                conflictReportLines, takeTheirs);
+            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,             thiers.objectHideFlags,             conflictReportLines, takeTheirs);
             correspondingSourceObjectId.value = MergeProperties(nameof(correspondingSourceObjectId),correspondingSourceObjectId, thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
-            prefabInstanceId.value            = MergeProperties(nameof(prefabInstanceId),           prefabInstanceId,  thiers.prefabInstanceId, conflictReportLines, takeTheirs); 
-            prefabAssetId.value               = MergeProperties(nameof(prefabAssetId),              prefabAssetId,     thiers.prefabAssetId, conflictReportLines, takeTheirs);
+            prefabInstanceId.value            = MergeProperties(nameof(prefabInstanceId),           prefabInstanceId,            thiers.prefabInstanceId,            conflictReportLines, takeTheirs); 
+            prefabAssetId.value               = MergeProperties(nameof(prefabAssetId),              prefabAssetId,               thiers.prefabAssetId,               conflictReportLines, takeTheirs);
         }
         
         protected void MergeYamlProperties(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
         {
-            var theirs = thiersObj as MonoBehaviorData;
+            var theirs = thiersObj as BaseData;
             
             var toReplace = new List<KeyValuePair<string, DiffableProperty<YamlNode>>>();
             foreach (var pair in additionalData)

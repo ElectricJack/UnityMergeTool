@@ -5,17 +5,14 @@ namespace UnityMergeTool
 {
     class MonoBehaviorData : BaseData
     {
-        public DiffableProperty<ulong>     gameObjectId    = new DiffableProperty<ulong>();
         public DiffableProperty<int>       enabled         = new DiffableProperty<int>();
         public DiffableProperty<int>       editorHideFlags = new DiffableProperty<int>();
         public DiffableProperty<ulong>     scriptId        = new DiffableProperty<ulong>();
         public DiffableProperty<string>    scriptGuid      = new DiffableProperty<string>();
         public DiffableProperty<int>       scriptType      = new DiffableProperty<int>();
-        
-        public GameObjectData              gameObjectRef = null;
 
         public override string ScenePath => gameObjectRef != null? gameObjectRef.ScenePath : "";
-        public string LogString()
+        public override string LogString()
         {
             var str = "MonoBehavior "+fileId.value+" - guid: " + scriptGuid.value + " enabled: " + enabled.value + " { ";
             bool first = true;
@@ -88,7 +85,7 @@ namespace UnityMergeTool
 
             if (conflictReportLines.Count > 0)
             {
-                conflictReport += "Conflict on MonoBehavior (guid: " + scriptGuid.value + ") at: " + gameObjectRef.ScenePath + "\n";
+                conflictReport += "Conflict on MonoBehavior (guid: " + scriptGuid.value + ") at: " + ScenePath + "\n";
                 foreach (var line in conflictReportLines) {
                     conflictReport += "  " + line + "\n";
                 }

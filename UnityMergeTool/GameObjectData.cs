@@ -7,10 +7,8 @@ namespace UnityMergeTool
 {
     class GameObjectData : BaseData
     {
-        public DiffableProperty<int> serializedVersion = new DiffableProperty<int>();
 
-        public DiffableProperty<ulong[]> componentIds = new DiffableProperty<ulong[]>()
-            {value = Array.Empty<ulong>()};
+        public DiffableProperty<ulong[]> componentIds = new DiffableProperty<ulong[]>() {value = Array.Empty<ulong>()};
 
         public DiffableProperty<int>    layer             = new DiffableProperty<int>();
         public DiffableProperty<string> name              = new DiffableProperty<string>();
@@ -21,7 +19,7 @@ namespace UnityMergeTool
         public DiffableProperty<int>    isActive          = new DiffableProperty<int>();
 
         public TransformData          transformRef = null;
-        public List<MonoBehaviorData> componentRefs = new List<MonoBehaviorData>();
+        public List<BaseData>         componentRefs = new List<BaseData>();
         public List<GameObjectData>   childRefs = new List<GameObjectData>();
         public GameObjectData         parentRef = null;
 
@@ -100,7 +98,7 @@ namespace UnityMergeTool
             }
         }
 
-        public string LogString()
+        public override string LogString()
         {
             return "GameObject '" + name.value + "' (" + fileId.value + ") { isActive: " + isActive.value +
                    " layer: " + layer.value + " }";

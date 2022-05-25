@@ -7,7 +7,6 @@ namespace UnityMergeTool
 {
     class TransformData : BaseData
     {
-        public DiffableProperty<ulong>          gameObjectId         = new DiffableProperty<ulong>();
         public DiffableProperty<float[]>        localRotation        = new DiffableProperty<float[]>() {value = new float[4]};
         public DiffableProperty<float[]>        localPosition        = new DiffableProperty<float[]>() {value = new float[3]};
         public DiffableProperty<float[]>        localScale           = new DiffableProperty<float[]>() {value = new float[3]};
@@ -18,12 +17,11 @@ namespace UnityMergeTool
         public DiffableProperty<float[]>        localEulerAnglesHint = new DiffableProperty<float[]>() {value = new float[3]};
 
         public override string ScenePath => gameObjectRef != null? gameObjectRef.ScenePath : "";
-            
-        public GameObjectData      gameObjectRef = null;
+        
         public List<TransformData> childRefs = new List<TransformData>();
         public TransformData       parentRef = null;
 
-        public string LogString()
+        public override string LogString()
         {
             return "Transform "+fileId.value+" -"+
                    (localPosition.value != null? " pos: { " + localPosition.value[0] + ", " + localPosition.value[1] + ", " + localPosition.value[2] + " } " : "") +
@@ -35,7 +33,6 @@ namespace UnityMergeTool
         {
             LoadBase(mappingNode, fileId, typeName);
             
-            LoadFileIdProperty  (mappingNode, "m_GameObject",    gameObjectId);
             LoadVector4Property (mappingNode, "m_LocalRotation", localRotation);
             LoadVector3Property (mappingNode, "m_LocalPosition", localPosition);
             LoadVector3Property (mappingNode, "m_LocalScale",    localScale);
@@ -63,7 +60,6 @@ namespace UnityMergeTool
             TransformData previous = previousObj as TransformData;
             _wasModified = DiffBase(previous);
             
-            _wasModified |= DiffProperty      (gameObjectId,        previous.gameObjectId);
             _wasModified |= DiffArrayProperty (localRotation,       previous.localRotation);
             _wasModified |= DiffArrayProperty (localPosition,       previous.localPosition);
             _wasModified |= DiffArrayProperty (localScale,          previous.localScale);
@@ -81,7 +77,6 @@ namespace UnityMergeTool
                 
             MergeBase(thiersObj, conflictReportLines, takeTheirs);
             
-            gameObjectId.value          = MergeProperties(nameof(gameObjectId),         gameObjectId,         thiers.gameObjectId,              conflictReportLines, takeTheirs);
             localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        conflictReportLines, takeTheirs);
             localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        conflictReportLines, takeTheirs);
             localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           conflictReportLines, takeTheirs);
@@ -92,7 +87,7 @@ namespace UnityMergeTool
 
             if (conflictReportLines.Count > 0)
             {
-                conflictReport += "Conflict on Transform of node: " + gameObjectRef.ScenePath + "\n";
+                conflictReport += "Conflict on Transform of node: " + ScenePath + "\n";
                 foreach (var line in conflictReportLines) {
                     conflictReport += "  " + line + "\n";
                 }
