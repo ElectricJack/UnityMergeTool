@@ -5,7 +5,7 @@ using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
 {
-    class TransformData : BaseSceneData
+    class TransformData : BaseData
     {
         public DiffableProperty<ulong>          gameObjectId         = new DiffableProperty<ulong>();
         public DiffableProperty<float[]>        localRotation        = new DiffableProperty<float[]>() {value = new float[4]};
@@ -31,59 +31,46 @@ namespace UnityMergeTool
                    (localScale.value != null? " scale: { " + localScale.value[0] + ", " + localScale.value[1] + ", " + localScale.value[2] + " } " : "") +
                    " rootOrder: " + rootOrder.value;
         }
-        public TransformData Load(YamlMappingNode mappingNode, ulong fileId)
+        public TransformData Load(YamlMappingNode mappingNode, ulong fileId, string typeName)
         {
-            // m_GameObject: { { fileID, 1308407462 } }
-            // m_LocalRotation: { { x, 0 }, { y, 0 }, { z, 0 }, { w, 1 } }
-            // m_LocalPosition: { { x, 0 }, { y, 0 }, { z, 0 } }
-            // m_LocalScale: { { x, 1 }, { y, 1 }, { z, 1 } }
-            // m_Children: [ { { fileID, 696452151 } } ]
-            // m_Father: { { fileID, 1584127366 } }
-            // m_RootOrder: 0
-            // m_LocalEulerAnglesHint: { { x, 0 }, { y, 0 }, { z, 0 } }
-                
-            LoadBase(mappingNode, fileId);
+            LoadBase(mappingNode, fileId, typeName);
             
-            gameObjectId.value         = ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, "m_GameObject"), "fileID"));
-            localRotation.value        = Helpers.GetChildVector4(mappingNode, "m_LocalRotation");
-            localPosition.value        = Helpers.GetChildVector3(mappingNode, "m_LocalPosition");
-            localScale.value           = Helpers.GetChildVector3(mappingNode, "m_LocalScale");
-            var childNodes= Helpers.GetChildMapNodes(mappingNode, "m_Children");
-            if (childNodes != null)
-            {
-                childrenIds.value = childNodes
-                    .Select(node => ulong.Parse(Helpers.GetChildScalarValue(node, "fileID")))
-                    .ToArray();
-            }
-            parentId.value             = ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, "m_Father"), "fileID"));
-            rootOrder.value            = int.Parse(Helpers.GetChildScalarValue(mappingNode, "m_RootOrder"));
-            localEulerAnglesHint.value = Helpers.GetChildVector3(mappingNode, "m_LocalEulerAnglesHint");
+            LoadFileIdProperty  (mappingNode, "m_GameObject",    gameObjectId);
+            LoadVector4Property (mappingNode, "m_LocalRotation", localRotation);
+            LoadVector3Property (mappingNode, "m_LocalPosition", localPosition);
+            LoadVector3Property (mappingNode, "m_LocalScale",    localScale);
 
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode("m_Children")))
+            {
+                var childNodes= Helpers.GetChildMapNodes(mappingNode, "m_Children");
+                if (childNodes != null)
+                {
+                    childrenIds.value = childNodes
+                        .Select(node => ulong.Parse(Helpers.GetChildScalarValue(node, "fileID")))
+                        .ToArray();
+                    childrenIds.assigned = true;
+                    _existingKeys.Add("m_Children");
+                }
+            }
+            
+            LoadFileIdProperty  (mappingNode, "m_Father",               parentId);
+            LoadIntProperty     (mappingNode, "m_RootOrder",            rootOrder);
+            LoadVector3Property (mappingNode, "m_LocalEulerAnglesHint", localEulerAnglesHint);
             return this;
         }
         public override bool Diff(object previousObj)
         {
             TransformData previous = previousObj as TransformData;
             _wasModified = DiffBase(previous);
-
-            gameObjectId.valueChanged          = gameObjectId.value != previous.gameObjectId.value;
-            localRotation.valueChanged         = !Helpers.ArraysEqual<float>(localRotation.value, previous.localRotation.value);         
-            localPosition.valueChanged         = !Helpers.ArraysEqual<float>(localRotation.value, previous.localRotation.value);
-            localScale.valueChanged            = !Helpers.ArraysEqual<float>(localScale.value, previous.localScale.value);
-            childrenIds.valueChanged           = !Helpers.ArraysEqual<ulong>(childrenIds.value, previous.childrenIds.value);
-            parentId.valueChanged              = parentId.value != previous.parentId.value;
-            rootOrder.valueChanged             = rootOrder.value != previous.rootOrder.value;
-            localEulerAnglesHint.valueChanged  = !Helpers.ArraysEqual(localEulerAnglesHint.value, previous.localEulerAnglesHint.value);
-
-            _wasModified = _wasModified ||
-                           gameObjectId.valueChanged ||
-                           localRotation.valueChanged ||
-                           localPosition.valueChanged ||
-                           localScale.valueChanged ||
-                           childrenIds.valueChanged ||
-                           parentId.valueChanged ||
-                           rootOrder.valueChanged ||
-                           localEulerAnglesHint.valueChanged;
+            
+            _wasModified |= DiffProperty      (gameObjectId,        previous.gameObjectId);
+            _wasModified |= DiffArrayProperty (localRotation,       previous.localRotation);
+            _wasModified |= DiffArrayProperty (localPosition,       previous.localPosition);
+            _wasModified |= DiffArrayProperty (localScale,          previous.localScale);
+            _wasModified |= DiffArrayProperty (childrenIds,         previous.childrenIds);
+            _wasModified |= DiffProperty      (parentId,            previous.parentId);
+            _wasModified |= DiffProperty      (rootOrder,           previous.rootOrder);
+            _wasModified |= DiffArrayProperty (localEulerAnglesHint,previous.localEulerAnglesHint);
 
             return WasModified;
         }
@@ -92,12 +79,8 @@ namespace UnityMergeTool
             var thiers = thiersObj as TransformData;
             var conflictReportLines = new List<string>();
                 
-            fileId.value                      = MergeProperties(nameof(fileId),                        fileId,                      thiers.fileId,                      conflictReportLines, takeTheirs);
-            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),               objectHideFlags,             thiers.objectHideFlags,             conflictReportLines, takeTheirs);
-            correspondingSourceObjectId.value = MergeProperties(nameof(correspondingSourceObjectId),   correspondingSourceObjectId, thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
-            prefabInstanceId.value            = MergeProperties(nameof(prefabInstanceId),              prefabInstanceId,            thiers.prefabInstanceId,            conflictReportLines, takeTheirs);
-            prefabAssetId.value               = MergeProperties(nameof(prefabAssetId),                 prefabAssetId,               thiers.prefabAssetId,               conflictReportLines, takeTheirs);
-                
+            MergeBase(thiersObj, conflictReportLines, takeTheirs);
+            
             gameObjectId.value          = MergeProperties(nameof(gameObjectId),         gameObjectId,         thiers.gameObjectId,              conflictReportLines, takeTheirs);
             localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        conflictReportLines, takeTheirs);
             localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        conflictReportLines, takeTheirs);

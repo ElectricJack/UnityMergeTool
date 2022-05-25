@@ -123,7 +123,7 @@ namespace UnityMergeTool
         }
         
         
-        private bool DiffData<T>(Dictionary<ulong, T> baseDataById, List<T> myData) where T : BaseSceneData
+        private bool DiffData<T>(Dictionary<ulong, T> baseDataById, List<T> myData) where T : BaseData
         {
             var foundDifferences = false;
             foreach (var monoData in myData)
@@ -146,7 +146,7 @@ namespace UnityMergeTool
 
             return foundDifferences;
         }
-        private static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, ref string conflictReport, bool takeTheirs = true) where T : BaseSceneData
+        private static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, ref string conflictReport, bool takeTheirs = true) where T : BaseData
         {
             // First determine what I added and removed and what they added and removed.
             FindAddedAndRemoved<T>(baseDatas, myData,    out List<T> myAdded, out List<T> myRemoved );
@@ -217,7 +217,7 @@ namespace UnityMergeTool
 
             return myData;
         }
-        private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : BaseSceneData
+        private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : BaseData
         {
             // Create output lists
             added   = new List<T>();
@@ -286,7 +286,7 @@ namespace UnityMergeTool
         }
         private void LoadYamlDoc(YamlNode node)
         {
-            var fileId = ulong.Parse(node.Anchor);
+            var fileId = ulong.Parse(node.Anchor.Value);
             
             // Examine the stream
             var mapping =  (YamlMappingNode)node;
@@ -298,19 +298,19 @@ namespace UnityMergeTool
 
                 if (scalarNode.Value.Equals("GameObject"))
                 {
-                    _goDatas.Add(new GameObjectData().Load((YamlMappingNode)entry.Value, fileId));
+                    _goDatas.Add(new GameObjectData().Load((YamlMappingNode)entry.Value, fileId, scalarNode.Value));
                 }
                 else if (scalarNode.Value.Equals("Transform"))
                 {
-                    _transDatas.Add(new TransformData().Load((YamlMappingNode)entry.Value,  fileId));
+                    _transDatas.Add(new TransformData().Load((YamlMappingNode)entry.Value,  fileId, scalarNode.Value));
                 }
                 else if (scalarNode.Value.Equals("MonoBehaviour"))
                 {
-                    _monoDatas.Add(new MonoBehaviorData().Load((YamlMappingNode) entry.Value, fileId));
+                    _monoDatas.Add(new MonoBehaviorData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value));
                 }
                 else
                 {
-                    Console.WriteLine(scalarNode.Value + " ------ ");
+                    Console.WriteLine(scalarNode.Value + " ------ ");/*
                     string[] notSupportedYet =
                     {
                         "OcclusionCullingSettings",
@@ -340,7 +340,7 @@ namespace UnityMergeTool
                     {
                         var name = ((YamlScalarNode) prop.Key).Value;
                         Console.WriteLine("  " + name + ": " + prop.Value);
-                    }
+                    }*/
                 }
             }
         }
@@ -554,7 +554,7 @@ namespace UnityMergeTool
             var fileA  = new UnityFileData("../../Scenes/SampleScene-A.unity");
             var fileB  = new UnityFileData("../../Scenes/SampleScene-B.unity");
 
-            /*
+            
             //Console.WriteLine("--- Prefab: --------------------------------------------------");
             //filePrefab.LogGameObjects();
             Console.WriteLine("\n--- Base: --------------------------------------------------");
@@ -569,7 +569,7 @@ namespace UnityMergeTool
             Console.WriteLine("-------------------------------------------------------------------");
             Console.WriteLine(conflictReport);
             Console.WriteLine("\n\n");
-            merged.LogGameObjects();*/
+            merged.LogGameObjects();
         }
         
     }

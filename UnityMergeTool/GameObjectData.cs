@@ -5,7 +5,7 @@ using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
 {
-    class GameObjectData : BaseSceneData
+    class GameObjectData : BaseData
     {
         public DiffableProperty<int> serializedVersion = new DiffableProperty<int>();
 
@@ -25,40 +25,33 @@ namespace UnityMergeTool
         public List<GameObjectData>   childRefs = new List<GameObjectData>();
         public GameObjectData         parentRef = null;
 
-        public GameObjectData Load(YamlMappingNode mappingNode, ulong fileId)
+        public GameObjectData Load(YamlMappingNode mappingNode, ulong fileId, string typeName)
         {
-            // serializedVersion: 6
-            // m_Component: [
-            //      { { component, { { fileID, 1165256316 } } } },
-            //      { { component, { { fileID, 1165256318 } } } },
-            //      { { component, { { fileID, 1165256317 } } } }
-            // ]
-            // m_Layer: 0
-            // m_Name: StarSurgeMusic
-            // m_TagString: Untagged
-            // m_Icon: { { fileID, 0 } }
-            // m_NavMeshLayer: 0
-            // m_StaticEditorFlags: 0
-            // m_IsActive: 0
-
-            LoadBase(mappingNode, fileId);
-
-            serializedVersion.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, "serializedVersion"));
-            layer.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, "m_Layer"));
-            name.value = Helpers.GetChildScalarValue(mappingNode, "m_Name", true);
-            tagString.value = Helpers.GetChildScalarValue(mappingNode, "m_TagString", true);
-            iconId.value = ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, "m_Icon"), "fileID"));
-            navMeshLayer.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, "m_NavMeshLayer"));
-            staticEditorFlags.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, "m_StaticEditorFlags"));
-            isActive.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, "m_IsActive"));
-
-            var componentNodes = Helpers.GetChildMapNodes(mappingNode, "m_Component");
-            if (componentNodes != null)
+            LoadBase(mappingNode, fileId, typeName);
+            
+            LoadIntProperty   (mappingNode, "m_Layer",             layer);
+            LoadStringProperty(mappingNode, "m_Name",              name);
+            LoadStringProperty(mappingNode, "m_TagString",         tagString);
+            LoadFileIdProperty(mappingNode, "m_Icon",              iconId);
+            LoadIntProperty   (mappingNode, "m_NavMeshLayer",      navMeshLayer);
+            LoadIntProperty   (mappingNode, "m_StaticEditorFlags", staticEditorFlags);
+            LoadIntProperty   (mappingNode, "m_IsActive",          isActive);
+            
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode("m_Component")))
             {
-                componentIds.value = componentNodes.Select(node =>
+                var componentNodes = Helpers.GetChildMapNodes(mappingNode, "m_Component");
+                if (componentNodes != null)
                 {
-                    return ulong.Parse(Helpers.GetChildScalarValue((YamlMappingNode) node["component"], "fileID"));
-                }).ToArray();
+                    componentIds.value = componentNodes.Select(node => {
+                        return ulong.Parse(Helpers.GetChildScalarValue((YamlMappingNode) node["component"], "fileID"));
+                    }).ToArray();
+                    componentIds.assigned = true;
+                    _existingKeys.Add("m_Component");
+                }
+            }
+            else
+            {
+                componentIds.assigned = false;
             }
 
             return this;
@@ -68,27 +61,14 @@ namespace UnityMergeTool
             GameObjectData previous = previousObj as GameObjectData;
             _wasModified = DiffBase(previous);
 
-            serializedVersion.valueChanged = serializedVersion.value != previous.serializedVersion.value;
-            componentIds.valueChanged = !Helpers.ArraysEqual(componentIds.value, previous.componentIds.value);
-            layer.valueChanged = layer.value != previous.layer.value;
-            name.valueChanged = name.value != previous.name.value;
-            tagString.valueChanged = !tagString.value.Equals(previous.tagString.value);
-            iconId.valueChanged = iconId.value != previous.iconId.value;
-            navMeshLayer.valueChanged = navMeshLayer.value != previous.navMeshLayer.value;
-
-            staticEditorFlags.valueChanged = staticEditorFlags.value != previous.staticEditorFlags.value;
-            isActive.valueChanged = isActive.value != previous.isActive.value;
-
-            _wasModified = _wasModified ||
-                           serializedVersion.valueChanged ||
-                           componentIds.valueChanged ||
-                           layer.valueChanged ||
-                           name.valueChanged ||
-                           tagString.valueChanged ||
-                           iconId.valueChanged ||
-                           navMeshLayer.valueChanged ||
-                           staticEditorFlags.valueChanged ||
-                           isActive.valueChanged;
+            _wasModified |= DiffArrayProperty(componentIds, previous.componentIds);
+            _wasModified |= DiffProperty(layer, previous.layer);
+            _wasModified |= DiffProperty(name, previous.name);
+            _wasModified |= DiffProperty(tagString, previous.tagString);
+            _wasModified |= DiffProperty(iconId, previous.iconId);
+            _wasModified |= DiffProperty(navMeshLayer, previous.navMeshLayer);
+            _wasModified |= DiffProperty(staticEditorFlags, previous.staticEditorFlags);
+            _wasModified |= DiffProperty(isActive, previous.isActive);
 
             return WasModified;
         }
@@ -98,21 +78,17 @@ namespace UnityMergeTool
             var thiers = thiersObj as GameObjectData;
             var conflictReportLines = new List<string>();
 
-            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,            thiers.fileId, conflictReportLines, takeTheirs);
-            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,   thiers.objectHideFlags, conflictReportLines, takeTheirs);
-            correspondingSourceObjectId.value = MergeProperties(nameof(correspondingSourceObjectId),correspondingSourceObjectId, thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
-            prefabInstanceId.value            = MergeProperties(nameof(prefabInstanceId),           prefabInstanceId,  thiers.prefabInstanceId, conflictReportLines, takeTheirs); 
-            prefabAssetId.value               = MergeProperties(nameof(prefabAssetId),              prefabAssetId,     thiers.prefabAssetId, conflictReportLines, takeTheirs);
-
-            serializedVersion.value           = MergeProperties(nameof(serializedVersion),          serializedVersion, thiers.serializedVersion, conflictReportLines, takeTheirs);
-            componentIds.value                = MergePropArray (nameof(componentIds),               componentIds, thiers.componentIds, conflictReportLines, takeTheirs);
-            layer.value                       = MergeProperties(nameof(layer),                      layer,             thiers.layer, conflictReportLines, takeTheirs);
-            name.value                        = MergeProperties(nameof(name),                       name,              thiers.name, conflictReportLines, takeTheirs);
-            tagString.value                   = MergeProperties(nameof(tagString),                  tagString,         thiers.tagString, conflictReportLines, takeTheirs);
-            iconId.value                      = MergeProperties(nameof(iconId),                     iconId,            thiers.iconId, conflictReportLines, takeTheirs);
-            navMeshLayer.value                = MergeProperties(nameof(navMeshLayer),               navMeshLayer,      thiers.navMeshLayer, conflictReportLines, takeTheirs);
-            staticEditorFlags.value           = MergeProperties(nameof(staticEditorFlags),          staticEditorFlags, thiers.staticEditorFlags, conflictReportLines, takeTheirs);
-            isActive.value                    = MergeProperties(nameof(isActive),                   isActive,          thiers.isActive, conflictReportLines, takeTheirs);
+            MergeBase(thiersObj, conflictReportLines, takeTheirs);
+            
+            serializedVersion.value = MergeProperties(nameof(serializedVersion), serializedVersion, thiers.serializedVersion, conflictReportLines, takeTheirs);
+            componentIds.value      = MergePropArray (nameof(componentIds),      componentIds,      thiers.componentIds,      conflictReportLines, takeTheirs);
+            layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             conflictReportLines, takeTheirs);
+            name.value              = MergeProperties(nameof(name),              name,              thiers.name,              conflictReportLines, takeTheirs);
+            tagString.value         = MergeProperties(nameof(tagString),         tagString,         thiers.tagString,         conflictReportLines, takeTheirs);
+            iconId.value            = MergeProperties(nameof(iconId),            iconId,            thiers.iconId,            conflictReportLines, takeTheirs);
+            navMeshLayer.value      = MergeProperties(nameof(navMeshLayer),      navMeshLayer,      thiers.navMeshLayer,      conflictReportLines, takeTheirs);
+            staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, conflictReportLines, takeTheirs);
+            isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          conflictReportLines, takeTheirs);
 
             if (conflictReportLines.Count > 0)
             {

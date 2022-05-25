@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
@@ -11,6 +12,10 @@ namespace UnityMergeTool
 
         public DiffableProperty<int>                          objectHideFlags             = new DiffableProperty<int>();
         public DiffableProperty<int>                          serializedVersion           = new DiffableProperty<int>();
+        public DiffableProperty<ulong>                        correspondingSourceObjectId = new DiffableProperty<ulong>();
+        public DiffableProperty<ulong>                        prefabInstanceId            = new DiffableProperty<ulong>();
+        public DiffableProperty<ulong>                        prefabAssetId               = new DiffableProperty<ulong>();
+
         
         public Dictionary<string, DiffableProperty<YamlNode>> additionalData = new Dictionary<string, DiffableProperty<YamlNode>>();
         protected List<string>                                _existingKeys = new List<string>();
@@ -22,15 +27,19 @@ namespace UnityMergeTool
         public abstract void Merge(object thiers, ref string conflictReport, bool takeTheirs = true);
         
         
-        protected void LoadBase(YamlMappingNode mappingNode, ulong fileId)
+        protected void LoadBase(YamlMappingNode mappingNode, ulong fileId, string typeName)
         {
+            this.typeName = typeName;
             this.fileId.value = fileId;
-            objectHideFlags.value             = int.Parse(Helpers.GetChildScalarValue(mappingNode, "m_ObjectHideFlags"));
-            serializedVersion.value           = int.Parse(Helpers.GetChildScalarValue(mappingNode, "serializedVersion"));
             
             _existingKeys.Clear();
-            _existingKeys.Add("m_ObjectHideFlags");
-            _existingKeys.Add("serializedVersion");
+            
+            LoadIntProperty(mappingNode, "m_ObjectHideFlags", objectHideFlags);
+            LoadIntProperty(mappingNode, "serializedVersion", serializedVersion);
+
+            LoadFileIdProperty(mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
+            LoadFileIdProperty(mappingNode, "m_PrefabInstance", prefabInstanceId);
+            LoadFileIdProperty(mappingNode, "m_PrefabAsset", prefabAssetId);
         }
         protected void LoadYamlProperties(YamlMappingNode mappingNode)
         {
@@ -43,16 +52,116 @@ namespace UnityMergeTool
                 additionalData.Add(keyName,  new DiffableProperty<YamlNode>() { value = item.Value });
             }
         }
-        protected bool DiffBase(BaseSceneData previous)
+        protected void LoadIntProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<int> property)
         {
-            fileId.valueChanged                      = fileId.value                      != previous.fileId.value;
-            objectHideFlags.valueChanged             = objectHideFlags.value             != previous.objectHideFlags.value;
-            serializedVersion.valueChanged           = serializedVersion.value           != previous.serializedVersion.value;
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            {
+                property.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, propertyName));
+                property.assigned = true;
+                _existingKeys.Add(propertyName);
+                return;
+            }
 
-            _wasModified = fileId.valueChanged || objectHideFlags.valueChanged || serializedVersion.valueChanged;
-            return WasModified;
+            property.assigned = false;
+        }
+        protected void LoadVector3Property(YamlMappingNode mappingNode, string propertyName, DiffableProperty<float[]> property)
+        {
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            {
+                property.value = Helpers.GetChildVector3(mappingNode, propertyName);
+                property.assigned = true;
+                _existingKeys.Add(propertyName);
+                return;
+            }
+
+            property.assigned = false;
+        }
+        protected void LoadVector4Property(YamlMappingNode mappingNode, string propertyName, DiffableProperty<float[]> property)
+        {
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            {
+                property.value = Helpers.GetChildVector4(mappingNode, propertyName);
+                property.assigned = true;
+                _existingKeys.Add(propertyName);
+                return;
+            }
+
+            property.assigned = false;
+        }
+        protected void LoadStringProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<string> property)
+        {
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            {
+                property.value = Helpers.GetChildScalarValue(mappingNode, propertyName);
+                property.assigned = true;
+                _existingKeys.Add(propertyName);
+                return;
+            }
+
+            property.assigned = false;
+        }
+        protected void LoadFileIdProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+        {
+            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            {
+                property.value = ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, propertyName), "fileID"));
+                property.assigned = true;
+                _existingKeys.Add(propertyName);
+                return;
+            }
+
+            property.assigned = false;
         }
         
+        protected bool DiffBase(BaseData previous)
+        {
+            _wasModified = false;
+            _wasModified |= DiffProperty(fileId,            previous.fileId);
+            _wasModified |= DiffProperty(objectHideFlags,   previous.objectHideFlags);
+            _wasModified |= DiffProperty(serializedVersion, previous.serializedVersion);
+
+            _wasModified |= DiffProperty(prefabInstanceId,  previous.prefabInstanceId);
+            _wasModified |= DiffProperty(prefabAssetId,     previous.prefabAssetId);
+            
+            return WasModified;
+        }
+        static protected bool DiffProperty<T>(DiffableProperty<T> mine, DiffableProperty<T> theirs)
+        {
+            // Skip if neither are defined (nothing modified)
+            if (!mine.assigned && !theirs.assigned)
+                return false;
+
+            if (!mine.assigned)
+            {
+                mine.value = theirs.value;
+                mine.valueChanged = true;
+                return true;
+            }
+
+            if (!theirs.assigned)
+                return false;
+            
+            return mine.valueChanged = !mine.value.Equals(theirs.value);
+        }
+        static protected bool DiffArrayProperty<T>(DiffableProperty<T[]> mine, DiffableProperty<T[]> theirs)
+        {
+            // Skip if neither are defined (nothing modified)
+            if (!mine.assigned && !theirs.assigned)
+                return false;
+
+            if (!mine.assigned)
+            {
+                mine.value = theirs.value;
+                mine.valueChanged = true;
+                return true;
+            }
+
+            if (!theirs.assigned)
+                return false;
+            
+            return mine.valueChanged = !Helpers.ArraysEqual(mine.value, theirs.value);
+        }
+
         protected void DiffYamlProperties(object previousObj)
         {
             MonoBehaviorData previous = previousObj as MonoBehaviorData;
@@ -73,6 +182,16 @@ namespace UnityMergeTool
                     _wasModified = _wasModified || pair.Value.valueChanged;
                 }
             }
+        }
+
+        protected void MergeBase(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
+        {
+            var thiers = thiersObj as BaseData;
+            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,            thiers.fileId, conflictReportLines, takeTheirs);
+            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,   thiers.objectHideFlags, conflictReportLines, takeTheirs);
+            correspondingSourceObjectId.value = MergeProperties(nameof(correspondingSourceObjectId),correspondingSourceObjectId, thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
+            prefabInstanceId.value            = MergeProperties(nameof(prefabInstanceId),           prefabInstanceId,  thiers.prefabInstanceId, conflictReportLines, takeTheirs); 
+            prefabAssetId.value               = MergeProperties(nameof(prefabAssetId),              prefabAssetId,     thiers.prefabAssetId, conflictReportLines, takeTheirs);
         }
         
         protected void MergeYamlProperties(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
