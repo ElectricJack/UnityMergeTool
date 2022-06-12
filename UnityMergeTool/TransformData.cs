@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
@@ -10,7 +11,7 @@ namespace UnityMergeTool
         public DiffableProperty<float[]>        localRotation        = new DiffableProperty<float[]>() {value = new float[4]};
         public DiffableProperty<float[]>        localPosition        = new DiffableProperty<float[]>() {value = new float[3]};
         public DiffableProperty<float[]>        localScale           = new DiffableProperty<float[]>() {value = new float[3]};
-        public DiffableProperty<ulong[]>        childrenIds          = new DiffableProperty<ulong[]>() { value = Array.Empty<ulong>() };
+        public DiffableProperty<ulong[]>        childrenIds          = new DiffableProperty<ulong[]>() { value = new ulong[0]};
         public DiffableProperty<ulong>          parentId             = new DiffableProperty<ulong>();
         public DiffableProperty<int>            rootOrder            = new DiffableProperty<int>();
 
@@ -29,9 +30,9 @@ namespace UnityMergeTool
                    (localScale.value != null? " scale: { " + localScale.value[0] + ", " + localScale.value[1] + ", " + localScale.value[2] + " } " : "") +
                    " rootOrder: " + rootOrder.value;
         }
-        public TransformData Load(YamlMappingNode mappingNode, ulong fileId, string typeName)
+        public TransformData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
         {
-            LoadBase(mappingNode, fileId, typeName);
+            LoadBase(mappingNode, fileId, typeName, tag);
             
             LoadVector4Property (mappingNode, "m_LocalRotation", localRotation);
             LoadVector3Property (mappingNode, "m_LocalPosition", localPosition);
@@ -53,7 +54,36 @@ namespace UnityMergeTool
             LoadFileIdProperty  (mappingNode, "m_Father",               parentId);
             LoadIntProperty     (mappingNode, "m_RootOrder",            rootOrder);
             LoadVector3Property (mappingNode, "m_LocalEulerAnglesHint", localEulerAnglesHint);
+            
+            LoadYamlProperties (mappingNode);
+            
             return this;
+        }
+        public override void Save(YamlMappingNode mappingNode)
+        {
+            SaveBase(mappingNode);
+            SaveVector4Property (mappingNode, "m_LocalRotation", localRotation);
+            SaveVector3Property (mappingNode, "m_LocalPosition", localPosition);
+            SaveVector3Property (mappingNode, "m_LocalScale",    localScale);
+            
+            if (childrenIds.assigned)
+            {
+                var childNodes = new YamlSequenceNode();
+                foreach (var childId in childrenIds.value)
+                {
+                    var childNode = new YamlMappingNode();
+                    childNode.Style = MappingStyle.Flow;
+                    childNode.Add(new YamlScalarNode("fileID"), new YamlScalarNode(childId.ToString()));
+                    childNodes.Add(childNode);
+                }
+                mappingNode.Add(new YamlScalarNode("m_Children"), childNodes);
+            }
+            
+            SaveFileIdProperty  (mappingNode, "m_Father",               parentId);
+            SaveIntProperty     (mappingNode, "m_RootOrder",            rootOrder);
+            SaveVector3Property (mappingNode, "m_LocalEulerAnglesHint", localEulerAnglesHint);
+            
+            SaveYamlProperties  (mappingNode);
         }
         public override bool Diff(object previousObj)
         {
@@ -68,9 +98,11 @@ namespace UnityMergeTool
             _wasModified |= DiffProperty      (rootOrder,           previous.rootOrder);
             _wasModified |= DiffArrayProperty (localEulerAnglesHint,previous.localEulerAnglesHint);
 
+            DiffYamlProperties(previousObj);
+            
             return WasModified;
         }
-        public override void Merge(object thiersObj, ref string conflictReport, bool takeTheirs = true)
+        public override void Merge(object thiersObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true)
         {
             var thiers = thiersObj as TransformData;
             var conflictReportLines = new List<string>();
@@ -85,9 +117,12 @@ namespace UnityMergeTool
             rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,                 conflictReportLines, takeTheirs);
             localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, conflictReportLines, takeTheirs);
 
+            MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
+            
             if (conflictReportLines.Count > 0)
             {
-                conflictReport += "Conflict on Transform of node: " + ScenePath + "\n";
+                conflictsFound = true;
+                conflictReport += "\nConflict on Transform of node: " + ScenePath + "\n";
                 foreach (var line in conflictReportLines) {
                     conflictReport += "  " + line + "\n";
                 }

@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
@@ -8,6 +11,8 @@ namespace UnityMergeTool
     abstract class BaseData
     {
         public string                                         typeName;
+        public string                                         tag;
+        
         public DiffableProperty<ulong>                        fileId                      = new DiffableProperty<ulong>(); // Assigned from anchor id of root node in document
         public DiffableProperty<ulong>                        gameObjectId                = new DiffableProperty<ulong>(); // Not every node has this but enough do it's worth keeping in base
         public DiffableProperty<int>                          objectHideFlags             = new DiffableProperty<int>();
@@ -25,26 +30,41 @@ namespace UnityMergeTool
         public    bool WasModified => _wasModified;
         public abstract string ScenePath { get; }
         public abstract bool Diff(object previous);
-        public abstract void Merge(object thiers, ref string conflictReport, bool takeTheirs = true);
+        public abstract void Merge(object thiers, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true);
 
+        public abstract void Save(YamlMappingNode node);
         public abstract string LogString();
 
         
-        protected void LoadBase(YamlMappingNode mappingNode, ulong fileId, string typeName)
+        protected void LoadBase(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
         {
             this.typeName = typeName;
             this.fileId.value = fileId;
+            this.tag = tag;
             
             _existingKeys.Clear();
-            
-            LoadFileIdProperty (mappingNode, "m_GameObject",    gameObjectId);
-            LoadIntProperty    (mappingNode, "m_ObjectHideFlags", objectHideFlags);
-            LoadIntProperty    (mappingNode, "serializedVersion", serializedVersion);
-
+           
+            LoadIntProperty    (mappingNode, "m_ObjectHideFlags",           objectHideFlags);
             LoadFileIdProperty (mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
-            LoadFileIdProperty (mappingNode, "m_PrefabInstance", prefabInstanceId);
-            LoadFileIdProperty (mappingNode, "m_PrefabAsset", prefabAssetId);
+            LoadFileIdProperty (mappingNode, "m_PrefabInstance",            prefabInstanceId);
+            LoadFileIdProperty (mappingNode, "m_PrefabAsset",               prefabAssetId);
+            LoadIntProperty    (mappingNode, "serializedVersion",           serializedVersion);
+            LoadFileIdProperty (mappingNode, "m_GameObject",                gameObjectId);
         }
+
+        protected void SaveBase(YamlMappingNode mappingNode)
+        {
+            mappingNode.Tag = new TagName(tag);
+
+            SaveIntProperty(mappingNode,    "m_ObjectHideFlags",           objectHideFlags);
+            SaveFileIdProperty(mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
+            SaveFileIdProperty(mappingNode, "m_PrefabInstance",            prefabInstanceId);
+            SaveFileIdProperty(mappingNode, "m_PrefabAsset",               prefabAssetId);
+            SaveIntProperty(mappingNode,    "serializedVersion",           serializedVersion);
+            SaveFileIdProperty(mappingNode, "m_GameObject",                gameObjectId);
+        }
+
+
         protected void LoadYamlProperties(YamlMappingNode mappingNode)
         {
             foreach (var item in mappingNode)
@@ -52,51 +72,92 @@ namespace UnityMergeTool
                 var keyName = ((YamlScalarNode) item.Key).Value;
                 if (_existingKeys.Contains(keyName))
                     continue;
-
+                
+                // This could potentially recurse for better accuracy
                 additionalData.Add(keyName,  new DiffableProperty<YamlNode>() { value = item.Value });
+            }
+        }
+
+        protected void SaveYamlProperties(YamlMappingNode mappingNode)
+        {
+            foreach (var item in additionalData)
+            {
+                mappingNode.Add(new YamlScalarNode(item.Key), item.Value.value);
             }
         }
         protected void LoadIntProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<int> property)
         {
-            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            LoadProperty(mappingNode, propertyName, property, () => {
+                return int.Parse(Helpers.GetChildScalarValue(mappingNode, propertyName));
+            });
+        }
+        protected void SaveIntProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<int> property)
+        {
+            SaveProperty(mappingNode, propertyName, property, (int value) =>
             {
-                property.value = int.Parse(Helpers.GetChildScalarValue(mappingNode, propertyName));
-                property.assigned = true;
-                _existingKeys.Add(propertyName);
-                return;
-            }
-
-            property.assigned = false;
+                return new YamlScalarNode(value.ToString());
+            });
         }
         protected void LoadVector3Property(YamlMappingNode mappingNode, string propertyName, DiffableProperty<float[]> property)
         {
-            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            LoadProperty(mappingNode, propertyName, property, () => {
+                return Helpers.GetChildVector3(mappingNode, propertyName);
+            });
+        }
+        protected void SaveVector3Property(YamlMappingNode mappingNode, string propertyName, DiffableProperty<float[]> property)
+        {
+            SaveProperty(mappingNode, propertyName, property, (float[] value) =>
             {
-                property.value = Helpers.GetChildVector3(mappingNode, propertyName);
-                property.assigned = true;
-                _existingKeys.Add(propertyName);
-                return;
-            }
-
-            property.assigned = false;
+                return Helpers.GetNodeFromVector3(value);
+            });
         }
         protected void LoadVector4Property(YamlMappingNode mappingNode, string propertyName, DiffableProperty<float[]> property)
         {
-            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            LoadProperty(mappingNode, propertyName, property, () => {
+                return Helpers.GetChildVector4(mappingNode, propertyName);
+            });
+        }
+        protected void SaveVector4Property(YamlMappingNode mappingNode, string propertyName, DiffableProperty<float[]> property)
+        {
+            SaveProperty(mappingNode, propertyName, property, (float[] value) =>
             {
-                property.value = Helpers.GetChildVector4(mappingNode, propertyName);
-                property.assigned = true;
-                _existingKeys.Add(propertyName);
-                return;
-            }
-
-            property.assigned = false;
+                return Helpers.GetNodeFromVector4(value);
+            });
         }
         protected void LoadStringProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<string> property)
         {
+            LoadProperty(mappingNode, propertyName, property, () => {
+                return Helpers.GetChildScalarValue(mappingNode, propertyName);
+            });
+        }
+        protected void SaveStringProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<string> property)
+        {
+            SaveProperty(mappingNode, propertyName, property, (string value) =>
+            {
+                return new YamlScalarNode(value);
+            });
+        }
+        protected void LoadFileIdProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+        {
+            LoadProperty(mappingNode, propertyName, property, () => {
+                return ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, propertyName), "fileID"));
+            });
+        }
+        protected void SaveFileIdProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+        {
+            SaveProperty(mappingNode, propertyName, property, (ulong value) =>
+            {
+                var container = new YamlMappingNode();
+                container.Add(new YamlScalarNode("fileID"), new YamlScalarNode(value.ToString()));
+                container.Style = MappingStyle.Flow;
+                return container;
+            });
+        }
+        private void LoadProperty<T>(YamlMappingNode mappingNode, string propertyName, DiffableProperty<T> property, Func<T> handler )
+        {
             if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
             {
-                property.value = Helpers.GetChildScalarValue(mappingNode, propertyName);
+                property.value = handler();
                 property.assigned = true;
                 _existingKeys.Add(propertyName);
                 return;
@@ -104,17 +165,12 @@ namespace UnityMergeTool
 
             property.assigned = false;
         }
-        protected void LoadFileIdProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+        private void SaveProperty<T>(YamlMappingNode mappingNode, string propertyName, DiffableProperty<T> property, Func<T, YamlNode> handler)
         {
-            if (mappingNode.Children.ContainsKey(new YamlScalarNode(propertyName)))
+            if (property.assigned) 
             {
-                property.value = ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, propertyName), "fileID"));
-                property.assigned = true;
-                _existingKeys.Add(propertyName);
-                return;
+                mappingNode.Add(new YamlScalarNode(propertyName), handler(property.value));    
             }
-
-            property.assigned = false;
         }
         
         protected bool DiffBase(BaseData previous)
@@ -174,6 +230,15 @@ namespace UnityMergeTool
             foreach (var pair in additionalData)
             {
                 var thisNode = pair.Value.value;
+
+                // If we couldn't find the key in previous, then this key was added/renamed and we should track this as a modification
+                if (!previous.additionalData.ContainsKey(pair.Key))
+                {
+                    _wasModified = true;
+                    pair.Value.valueChanged = true;
+                    continue;
+                }
+                
                 var prevNode = previous.additionalData[pair.Key].value;
 
                 if (prevNode.Tag != thisNode.Tag || prevNode.NodeType != thisNode.NodeType)
@@ -208,7 +273,9 @@ namespace UnityMergeTool
             foreach (var pair in additionalData)
             {
                 var thisNode = pair.Value;
-                var theirNode = theirs.additionalData[pair.Key];
+                var theirNode = theirs.additionalData.ContainsKey(pair.Key) ? theirs.additionalData[pair.Key] : null;
+                if (theirNode == null)
+                    continue;
 
                 if (thisNode.valueChanged && theirNode.valueChanged)
                 {

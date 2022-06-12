@@ -19,27 +19,34 @@ namespace UnityMergeTool
             }
             return str + " }";
         }
-        public UnmappedData Load(YamlMappingNode mappingNode, ulong fileId, string typeName)
+        public UnmappedData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
         {
-            LoadBase(mappingNode, fileId, typeName);
+            LoadBase(mappingNode, fileId, typeName, tag);
             LoadYamlProperties(mappingNode);
             return this;
+        }
+        public override void Save(YamlMappingNode mappingNode)
+        {
+            SaveBase(mappingNode);
+            SaveYamlProperties(mappingNode);
         }
 
         public override bool Diff(object previousObj)
         {
+            DiffBase((BaseData)previousObj);
             DiffYamlProperties(previousObj);
             return WasModified;
         }
 
-        public override void Merge(object thiersObj, ref string conflictReport, bool takeTheirs = true)
+        public override void Merge(object thiersObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true)
         {
             var conflictReportLines = new List<string>();
             MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
             
             if (conflictReportLines.Count > 0)
             {
-                conflictReport += "Conflict on "+typeName+" at "+ScenePath+"\n";
+                conflictsFound = true;
+                conflictReport += "\nConflict on "+typeName+" at "+ScenePath+"\n";
                 foreach (var line in conflictReportLines) {
                     conflictReport += "  " + line + "\n";
                 }

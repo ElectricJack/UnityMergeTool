@@ -3,6 +3,7 @@ using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Security.Cryptography;
 using YamlDotNet.Core;
 
@@ -16,30 +17,34 @@ namespace UnityMergeTool
     {
         public static void Main(string[] args)
         {
-            //var file  = new UnityFileData("Scenes/Prefab.prefab");
-           
-            
-            var fileBase  = new UnityFileData("../../Scenes/SampleScene-Base.unity");
-            var fileA  = new UnityFileData("../../Scenes/SampleScene-A.unity");
-            var fileB  = new UnityFileData("../../Scenes/SampleScene-B.unity");
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Invalid args - Expecting: merge \"BASE\" \"REMOTE\" \"LOCAL\" \"MERGED\"");
+                return;
+            }
 
-            
-            //Console.WriteLine("--- Prefab: --------------------------------------------------");
-            //filePrefab.LogGameObjects();
-            Console.WriteLine("\n--- Base: --------------------------------------------------");
-            fileBase.LogGameObjects();
-            Console.WriteLine("\n--- A: --------------------------------------------------");
-            fileA.LogGameObjects();
-            Console.WriteLine("\n--- B: --------------------------------------------------");
-            fileB.LogGameObjects();
-
-
-            
-            var merged = fileA.Merge(fileBase, fileB, out string conflictReport);
-            Console.WriteLine("-------------------------------------------------------------------");
-            Console.WriteLine(conflictReport);
-            Console.WriteLine("\n\n");
-            merged.LogGameObjects();
+            if (args[0].Equals("merge"))
+            {
+                if (args.Length != 5)
+                {
+                    Console.WriteLine("Invalid args - Expecting: merge \"BASE\" \"REMOTE\" \"LOCAL\" \"MERGED\"");
+                    return;     
+                }
+                
+                // merge"$BASE" "$REMOTE" "$LOCAL" "$MERGED"
+                
+                var fileBase    = new UnityFileData(args[1]);
+                var fileRemote  = new UnityFileData(args[2]);
+                var fileLocal   = new UnityFileData(args[3]);
+                var fileMerged = args[4];
+                var conflictFile = fileMerged + ".conflicts.txt";
+    
+                var merged = fileLocal.Merge(fileBase, fileRemote, out string conflictReport, out bool conflictsFound);
+                merged.SaveFile(fileMerged);
+                if (conflictsFound) {
+                    File.WriteAllText(conflictFile, conflictReport);
+                }
+            }
         }
         
     }

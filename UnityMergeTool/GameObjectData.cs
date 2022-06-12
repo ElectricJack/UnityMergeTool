@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
@@ -8,7 +9,7 @@ namespace UnityMergeTool
     class GameObjectData : BaseData
     {
 
-        public DiffableProperty<ulong[]> componentIds = new DiffableProperty<ulong[]>() {value = Array.Empty<ulong>()};
+        public DiffableProperty<ulong[]> componentIds = new DiffableProperty<ulong[]>() {value = new ulong[0]};
 
         public DiffableProperty<int>    layer             = new DiffableProperty<int>();
         public DiffableProperty<string> name              = new DiffableProperty<string>();
@@ -23,9 +24,9 @@ namespace UnityMergeTool
         public List<GameObjectData>   childRefs = new List<GameObjectData>();
         public GameObjectData         parentRef = null;
 
-        public GameObjectData Load(YamlMappingNode mappingNode, ulong fileId, string typeName)
+        public GameObjectData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
         {
-            LoadBase(mappingNode, fileId, typeName);
+            LoadBase(mappingNode, fileId, typeName, tag);
             
             LoadIntProperty   (mappingNode, "m_Layer",             layer);
             LoadStringProperty(mappingNode, "m_Name",              name);
@@ -51,8 +52,41 @@ namespace UnityMergeTool
             {
                 componentIds.assigned = false;
             }
+            
+            LoadYamlProperties(mappingNode);
 
             return this;
+        }
+
+        public override void Save(YamlMappingNode mappingNode)
+        {
+            SaveBase(mappingNode);
+            
+            if (componentIds.assigned)
+            {
+                var childNodes = new YamlSequenceNode();
+                foreach (var childId in componentIds.value)
+                {
+                    var childNode = new YamlMappingNode();
+                    var componentNode = new YamlMappingNode();
+                    componentNode.Add(new YamlScalarNode("fileID"), new YamlScalarNode(childId.ToString()));
+                    componentNode.Style = MappingStyle.Flow;
+                    childNode.Add(new YamlScalarNode("component"), componentNode);
+                    childNode.Style = MappingStyle.Flow;
+                    childNodes.Add(childNode);
+                }
+                mappingNode.Add(new YamlScalarNode("m_Component"), childNodes);
+            }
+            
+            SaveIntProperty   (mappingNode, "m_Layer",             layer);
+            SaveStringProperty(mappingNode, "m_Name",              name);
+            SaveStringProperty(mappingNode, "m_TagString",         tagString);
+            SaveFileIdProperty(mappingNode, "m_Icon",              iconId);
+            SaveIntProperty   (mappingNode, "m_NavMeshLayer",      navMeshLayer);
+            SaveIntProperty   (mappingNode, "m_StaticEditorFlags", staticEditorFlags);
+            SaveIntProperty   (mappingNode, "m_IsActive",          isActive);
+
+            SaveYamlProperties(mappingNode);
         }
         public override bool Diff(object previousObj)
         {
@@ -67,18 +101,19 @@ namespace UnityMergeTool
             _wasModified |= DiffProperty(navMeshLayer, previous.navMeshLayer);
             _wasModified |= DiffProperty(staticEditorFlags, previous.staticEditorFlags);
             _wasModified |= DiffProperty(isActive, previous.isActive);
+            
+            DiffYamlProperties(previousObj);
 
             return WasModified;
         }
             
-        public override void Merge(object thiersObj, ref string conflictReport, bool takeTheirs = true)
+        public override void Merge(object thiersObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true)
         {
             var thiers = thiersObj as GameObjectData;
             var conflictReportLines = new List<string>();
 
             MergeBase(thiersObj, conflictReportLines, takeTheirs);
             
-            serializedVersion.value = MergeProperties(nameof(serializedVersion), serializedVersion, thiers.serializedVersion, conflictReportLines, takeTheirs);
             componentIds.value      = MergePropArray (nameof(componentIds),      componentIds,      thiers.componentIds,      conflictReportLines, takeTheirs);
             layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             conflictReportLines, takeTheirs);
             name.value              = MergeProperties(nameof(name),              name,              thiers.name,              conflictReportLines, takeTheirs);
@@ -88,9 +123,12 @@ namespace UnityMergeTool
             staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, conflictReportLines, takeTheirs);
             isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          conflictReportLines, takeTheirs);
 
+            MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
+            
             if (conflictReportLines.Count > 0)
             {
-                conflictReport += "Conflict on GameObject: " + ScenePath + "\n";
+                conflictsFound = true;
+                conflictReport += "\nConflict on GameObject: " + ScenePath + "\n";
                 foreach (var line in conflictReportLines)
                 {
                     conflictReport += "  " + line + "\n";

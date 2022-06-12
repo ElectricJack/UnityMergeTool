@@ -3,3 +3,5 @@ packages
 UnityMergeTool.sln.DotSettings.user
 UnityMergeTool/obj
 UnityMergeTool/bin
+.vs/UnityMergeTool/xs/UserPrefs.xml
+.vs/UnityMergeTool/xs/project-cache/UnityMergeTool-Debug.json

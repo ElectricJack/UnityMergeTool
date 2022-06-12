@@ -1,3 +1,4 @@
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
 namespace UnityMergeTool
@@ -33,6 +34,16 @@ namespace UnityMergeTool
             }
             return null;
         }
+        public static YamlMappingNode GetNodeFromVector3(float[] vector3)
+        {
+            var node = new YamlMappingNode();
+            //node.Style =
+            node.Add(new YamlScalarNode("x"), new YamlScalarNode(vector3[0].ToString()));
+            node.Add(new YamlScalarNode("y"), new YamlScalarNode(vector3[1].ToString()));
+            node.Add(new YamlScalarNode("z"), new YamlScalarNode(vector3[2].ToString()));
+            node.Style = MappingStyle.Flow;
+            return node;
+        }
         public static float[] GetChildVector4(YamlMappingNode mappingNode, string keyName)
         {
             var keyNode = new YamlScalarNode(keyName);
@@ -48,6 +59,17 @@ namespace UnityMergeTool
                 };
             }
             return null;
+        }
+        public static YamlMappingNode GetNodeFromVector4(float[] vector3)
+        {
+            var node = new YamlMappingNode();
+            //node.Style =
+            node.Add(new YamlScalarNode("x"), new YamlScalarNode(vector3[0].ToString()));
+            node.Add(new YamlScalarNode("y"), new YamlScalarNode(vector3[1].ToString()));
+            node.Add(new YamlScalarNode("z"), new YamlScalarNode(vector3[2].ToString()));
+            node.Add(new YamlScalarNode("w"), new YamlScalarNode(vector3[3].ToString()));
+            node.Style = MappingStyle.Flow;
+            return node;
         }
         public static YamlMappingNode[] GetChildMapNodes(YamlMappingNode mappingNode, string keyName)
         {
