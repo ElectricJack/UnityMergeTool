@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using YamlDotNet.Core.Events;
@@ -107,7 +106,8 @@ namespace UnityMergeTool
             return WasModified;
         }
             
-        public override void Merge(object thiersObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, ref string conflictReport, ref bool conflictsFound,
+            bool takeTheirs = true)
         {
             var thiers = thiersObj as GameObjectData;
             var conflictReportLines = new List<string>();

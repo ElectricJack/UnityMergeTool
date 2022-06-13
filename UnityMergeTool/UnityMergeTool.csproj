@@ -49,8 +49,10 @@
         <Compile Include="GameObjectData.cs" />
         <Compile Include="Helpers.cs" />
         <Compile Include="MonoBehaviorData.cs" />
+        <Compile Include="PrefabInstanceData.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
+        <Compile Include="PropertyMerge.cs" />
         <Compile Include="TransformData.cs" />
         <Compile Include="UnityFileData.cs" />
         <Compile Include="UnmappedData.cs" />

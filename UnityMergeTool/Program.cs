@@ -1,15 +1,5 @@
 ﻿using System;
-using System.CodeDom;
-using System.CodeDom.Compiler;
-using System.Data;
-using System.Diagnostics;
 using System.IO;
-using System.Security.Cryptography;
-using YamlDotNet.Core;
-
-//using YamlDotNet.RepresentationModel;
-//using YamlDotNet.NetCore;
-//using Xunit.Abstractions;
 
 namespace UnityMergeTool
 {

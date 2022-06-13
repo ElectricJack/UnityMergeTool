@@ -38,13 +38,16 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public override void Merge(object thiersObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, ref string conflictReport, ref bool conflictsFound,
+            bool takeTheirs = true)
         {
             var conflictReportLines = new List<string>();
             MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
             
             if (conflictReportLines.Count > 0)
             {
+                MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
+                
                 conflictsFound = true;
                 conflictReport += "\nConflict on "+typeName+" at "+ScenePath+"\n";
                 foreach (var line in conflictReportLines) {

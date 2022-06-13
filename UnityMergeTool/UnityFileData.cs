@@ -22,16 +22,18 @@ namespace UnityMergeTool
         private YamlStream                          _yaml = null;
 
         // Internal state after document loaded
-        private List<GameObjectData>                _goDatas;
-        private Dictionary<ulong, GameObjectData>   _gameObjectsById;
-        private List<MonoBehaviorData>              _monoDatas;
-        private Dictionary<ulong, MonoBehaviorData> _monosById;
-        private List<TransformData>                 _transDatas;
-        private Dictionary<ulong, TransformData>    _transformsById;
-        private List<TransformData>                 _roots;
-        private List<UnmappedData>                  _unmappedDatas;
-        private Dictionary<ulong, BaseData>         _allDatasById;
-        private List<BaseData>                      _allDatas;
+        private List<GameObjectData>                  _goDatas;
+        private Dictionary<ulong, GameObjectData>     _gameObjectsById;
+        private List<MonoBehaviorData>                _monoDatas;
+        private Dictionary<ulong, MonoBehaviorData>   _monosById;
+        private List<TransformData>                   _transDatas;
+        private Dictionary<ulong, TransformData>      _transformsById;
+        private List<PrefabInstanceData>              _prefabDatas;
+        private Dictionary<ulong, PrefabInstanceData> _prefabsById;
+        private List<TransformData>                   _roots;
+        private List<UnmappedData>                    _unmappedDatas;
+        private Dictionary<ulong, BaseData>           _allDatasById;
+        private List<BaseData>                        _allDatas;
         
         
         public UnityFileData() {}
@@ -154,7 +156,7 @@ namespace UnityMergeTool
 
             return foundDifferences;
         }
-        private static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true) where T : BaseData
+        public static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true) where T : IMergable
         {
             // First determine what I added and removed and what they added and removed.
             FindAddedAndRemoved<T>(baseDatas, myData,    out List<T> myAdded, out List<T> myRemoved );
@@ -166,8 +168,8 @@ namespace UnityMergeTool
             foreach (var myRemovedData in myRemoved)
             {
                 // If we find data I removed in their dataset and it was modified
-                var foundRemoved = thierData.FirstOrDefault(item => item.fileId.value == myRemovedData.fileId.value);
-                if (foundRemoved != default && foundRemoved.WasModified)
+                var foundRemoved = thierData.FirstOrDefault(item => item.Matches(myRemovedData));
+                if (foundRemoved != null && foundRemoved.WasModified)
                 {
                     // @TODO: Report it, and add it to data we should preserve
                     conflictReport += "Conflict found! Remote changed data I removed";
@@ -180,8 +182,8 @@ namespace UnityMergeTool
             foreach (var thierRemovedData in thierRemoved)
             {
                 // If we find data they removed that I changed
-                var foundRemoved = myData.FirstOrDefault(item => item.fileId.value == thierRemovedData.fileId.value);
-                if (foundRemoved != default && foundRemoved.WasModified)
+                var foundRemoved = myData.FirstOrDefault(item => item.Matches(thierRemovedData));
+                if (foundRemoved != null && foundRemoved.WasModified)
                 {
                     // @TODO: Report it, and add it to data we should preserve
                     conflictReport += "Conflict found! I changed data remote removed";
@@ -196,13 +198,13 @@ namespace UnityMergeTool
             foreach (var baseData in baseDatas)
             {
                 // Skip any that we removed
-                var myFoundRemoved = myRemoved.FirstOrDefault(item => item.fileId.value == baseData.fileId.value);
-                if (myFoundRemoved != default)
+                var myFoundRemoved = myRemoved.FirstOrDefault(item => item.Matches(baseData));
+                if (myFoundRemoved != null)
                     continue;
                 
                 // Skip any that they removed
-                var theyFoundRemoved = thierRemoved.FirstOrDefault(item => item.fileId.value == baseData.fileId.value);
-                if (theyFoundRemoved != default)
+                var theyFoundRemoved = thierRemoved.FirstOrDefault(item => item.Matches(baseData));
+                if (theyFoundRemoved != null)
                     continue;
 
                 // Add to shared list
@@ -213,10 +215,11 @@ namespace UnityMergeTool
             foreach (var sharedData in shared)
             {
                 // Finding these should be guaranteed because we already determined it's in all sets
-                var foundInMine = myData.First(item => item.fileId.value == sharedData.fileId.value);
-                var foundInThiers = thierData.First(item => item.fileId.value == sharedData.fileId.value);
+                var foundInBase   = baseDatas.First(item => item.Matches(sharedData));
+                var foundInMine   = myData.First(item => item.Matches(sharedData));
+                var foundInTheirs = thierData.First(item => item.Matches(sharedData));
 
-                foundInMine.Merge(foundInThiers, ref conflictReport, ref conflictsFound, takeTheirs);
+                foundInMine.Merge(foundInBase, foundInTheirs, ref conflictReport, ref conflictsFound, takeTheirs);
             }
             
             // Add anything new from theirs to mine, there will be no conflicts here
@@ -227,7 +230,7 @@ namespace UnityMergeTool
 
             return myData;
         }
-        private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : BaseData
+        private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : IMergable
         {
             // Create output lists
             added   = new List<T>();
@@ -236,8 +239,8 @@ namespace UnityMergeTool
             foreach (var data in baseData)
             {
                 // Check if we can find  base data inside current
-                var foundItem = currentData.FirstOrDefault(item => data.fileId.value.Equals(item.fileId.value));
-                if (foundItem == default) {
+                var foundItem = currentData.FirstOrDefault(item => data.Matches(item) );
+                if (foundItem == null) {
                     // It was removed in the current data
                     removed.Add(data);
                 }
@@ -246,8 +249,8 @@ namespace UnityMergeTool
             foreach (var data in currentData)
             {
                 // Check if we can find current data inside base
-                var foundItem = baseData.FirstOrDefault(item => data.fileId.value.Equals(item.fileId.value));
-                if (foundItem == default) {
+                var foundItem = baseData.FirstOrDefault(item => data.Matches(item));
+                if (foundItem == null) {
                     // It was added in the current data
                     added.Add(data);
                 }
@@ -269,11 +272,14 @@ namespace UnityMergeTool
             }
         }
 
+        
+        
         private void LoadYamlStream()
         {
             _goDatas       = new List<GameObjectData>();
             _monoDatas     = new List<MonoBehaviorData>();
             _transDatas    = new List<TransformData>();
+            _prefabDatas   = new List<PrefabInstanceData>();
             _unmappedDatas = new List<UnmappedData>();
             _allDatas      = new List<BaseData>();
             
@@ -284,6 +290,7 @@ namespace UnityMergeTool
             _gameObjectsById = new Dictionary<ulong, GameObjectData>();
             _transformsById  = new Dictionary<ulong, TransformData>();
             _monosById       = new Dictionary<ulong, MonoBehaviorData>();
+            _prefabsById     = new Dictionary<ulong, PrefabInstanceData>();
             _allDatasById    = new Dictionary<ulong, BaseData>();
 
             RebuildLinks();
@@ -316,6 +323,12 @@ namespace UnityMergeTool
                 {
                     var data = new MonoBehaviorData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value, mapping.Tag.Value);
                     _monoDatas.Add(data);
+                    _allDatas.Add(data);
+                }
+                else if (scalarNode.Value.Equals("PrefabInstance"))
+                {
+                    var data = new PrefabInstanceData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value, mapping.Tag.Value);
+                    _prefabDatas.Add(data);
                     _allDatas.Add(data);
                 }
                 else
