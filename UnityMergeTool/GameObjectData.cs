@@ -8,12 +8,13 @@ namespace UnityMergeTool
     class GameObjectData : BaseData
     {
 
-        public DiffableProperty<ulong[]> componentIds = new DiffableProperty<ulong[]>() {value = new ulong[0]};
+        //public DiffableProperty<ulong[]> componentIds = new DiffableProperty<ulong[]>() {value = new ulong[0]};
+        public List<DiffableFileId> componentIds = new List<DiffableFileId>();
 
         public DiffableProperty<int>    layer             = new DiffableProperty<int>();
         public DiffableProperty<string> name              = new DiffableProperty<string>();
         public DiffableProperty<string> tagString         = new DiffableProperty<string>();
-        public DiffableProperty<ulong>  iconId            = new DiffableProperty<ulong>();
+        public DiffableFileId           iconId            = new DiffableFileId();
         public DiffableProperty<int>    navMeshLayer      = new DiffableProperty<int>();
         public DiffableProperty<int>    staticEditorFlags = new DiffableProperty<int>();
         public DiffableProperty<int>    isActive          = new DiffableProperty<int>();
@@ -26,32 +27,28 @@ namespace UnityMergeTool
         public GameObjectData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
         {
             LoadBase(mappingNode, fileId, typeName, tag);
-            
-            LoadIntProperty   (mappingNode, "m_Layer",             layer);
-            LoadStringProperty(mappingNode, "m_Name",              name);
-            LoadStringProperty(mappingNode, "m_TagString",         tagString);
-            LoadFileIdProperty(mappingNode, "m_Icon",              iconId);
-            LoadIntProperty   (mappingNode, "m_NavMeshLayer",      navMeshLayer);
-            LoadIntProperty   (mappingNode, "m_StaticEditorFlags", staticEditorFlags);
-            LoadIntProperty   (mappingNode, "m_IsActive",          isActive);
-            
+
+            LoadIntProperty(mappingNode, "m_Layer", layer);
+            LoadStringProperty(mappingNode, "m_Name", name);
+            LoadStringProperty(mappingNode, "m_TagString", tagString);
+            iconId.Load(mappingNode, "m_Icon", _existingKeys);
+            LoadIntProperty(mappingNode, "m_NavMeshLayer", navMeshLayer);
+            LoadIntProperty(mappingNode, "m_StaticEditorFlags", staticEditorFlags);
+            LoadIntProperty(mappingNode, "m_IsActive", isActive);
+
             if (mappingNode.Children.ContainsKey(new YamlScalarNode("m_Component")))
             {
                 var componentNodes = Helpers.GetChildMapNodes(mappingNode, "m_Component");
                 if (componentNodes != null)
                 {
-                    componentIds.value = componentNodes.Select(node => {
-                        return ulong.Parse(Helpers.GetChildScalarValue((YamlMappingNode) node["component"], "fileID"));
-                    }).ToArray();
-                    componentIds.assigned = true;
+                    foreach (var node in componentNodes) {
+                        componentIds.Add(new DiffableFileId().Load(node, "component", null)); 
+                    }
+                    
                     _existingKeys.Add("m_Component");
                 }
             }
-            else
-            {
-                componentIds.assigned = false;
-            }
-            
+
             LoadYamlProperties(mappingNode);
 
             return this;
@@ -61,16 +58,13 @@ namespace UnityMergeTool
         {
             SaveBase(mappingNode);
             
-            if (componentIds.assigned)
+            if (componentIds.Count > 0)
             {
                 var childNodes = new YamlSequenceNode();
-                foreach (var childId in componentIds.value)
+                foreach (var id in componentIds)
                 {
                     var childNode = new YamlMappingNode();
-                    var componentNode = new YamlMappingNode();
-                    componentNode.Add(new YamlScalarNode("fileID"), new YamlScalarNode(childId.ToString()));
-                    componentNode.Style = MappingStyle.Flow;
-                    childNode.Add(new YamlScalarNode("component"), componentNode);
+                    id.Save(childNode);
                     childNode.Style = MappingStyle.Flow;
                     childNodes.Add(childNode);
                 }
@@ -80,7 +74,7 @@ namespace UnityMergeTool
             SaveIntProperty   (mappingNode, "m_Layer",             layer);
             SaveStringProperty(mappingNode, "m_Name",              name);
             SaveStringProperty(mappingNode, "m_TagString",         tagString);
-            SaveFileIdProperty(mappingNode, "m_Icon",              iconId);
+            iconId.Save(mappingNode);
             SaveIntProperty   (mappingNode, "m_NavMeshLayer",      navMeshLayer);
             SaveIntProperty   (mappingNode, "m_StaticEditorFlags", staticEditorFlags);
             SaveIntProperty   (mappingNode, "m_IsActive",          isActive);
@@ -92,11 +86,12 @@ namespace UnityMergeTool
             GameObjectData previous = previousObj as GameObjectData;
             _wasModified = DiffBase(previous);
 
-            _wasModified |= DiffArrayProperty(componentIds, previous.componentIds);
+            _wasModified |= DiffFileIdList(componentIds, previous.componentIds);
+            
             _wasModified |= DiffProperty(layer, previous.layer);
             _wasModified |= DiffProperty(name, previous.name);
             _wasModified |= DiffProperty(tagString, previous.tagString);
-            _wasModified |= DiffProperty(iconId, previous.iconId);
+            _wasModified |= iconId.Diff(previous.iconId);
             _wasModified |= DiffProperty(navMeshLayer, previous.navMeshLayer);
             _wasModified |= DiffProperty(staticEditorFlags, previous.staticEditorFlags);
             _wasModified |= DiffProperty(isActive, previous.isActive);
@@ -110,15 +105,25 @@ namespace UnityMergeTool
             bool takeTheirs = true)
         {
             var thiers = thiersObj as GameObjectData;
+            var baseData = baseObj as GameObjectData;
             var conflictReportLines = new List<string>();
 
             MergeBase(thiersObj, conflictReportLines, takeTheirs);
             
-            componentIds.value      = MergePropArray (nameof(componentIds),      componentIds,      thiers.componentIds,      conflictReportLines, takeTheirs);
+            
+            string componentConflictReport = "";
+            bool componentConflictsFound = false;
+            UnityFileData.MergeData(baseData.componentIds, componentIds, thiers.componentIds, ref componentConflictReport, ref componentConflictsFound, takeTheirs);
+            if (componentConflictsFound)
+            {
+                conflictReportLines.Add(conflictReport);
+                conflictsFound = true;
+            }
+            
             layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             conflictReportLines, takeTheirs);
             name.value              = MergeProperties(nameof(name),              name,              thiers.name,              conflictReportLines, takeTheirs);
             tagString.value         = MergeProperties(nameof(tagString),         tagString,         thiers.tagString,         conflictReportLines, takeTheirs);
-            iconId.value            = MergeProperties(nameof(iconId),            iconId,            thiers.iconId,            conflictReportLines, takeTheirs);
+            iconId.Merge(thiers.iconId, conflictReportLines, takeTheirs);
             navMeshLayer.value      = MergeProperties(nameof(navMeshLayer),      navMeshLayer,      thiers.navMeshLayer,      conflictReportLines, takeTheirs);
             staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, conflictReportLines, takeTheirs);
             isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          conflictReportLines, takeTheirs);

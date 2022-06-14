@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
@@ -85,22 +86,21 @@ namespace UnityMergeTool
                 return new YamlScalarNode(value);
             });
         }
-        protected void LoadFileIdProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+
+        protected void LoadUlongProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
         {
             LoadProperty(mappingNode, propertyName, property, (node) => {
-                return ulong.Parse(Helpers.GetChildScalarValue(Helpers.GetChildMapNode(mappingNode, propertyName), "fileID"));
+                return ulong.Parse(((YamlScalarNode) node).Value);
             });
         }
-        protected void SaveFileIdProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+
+        protected void SaveUlongProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
         {
-            SaveProperty(mappingNode, propertyName, property, (ulong value) =>
-            {
-                var container = new YamlMappingNode();
-                container.Add(new YamlScalarNode("fileID"), new YamlScalarNode(value.ToString()));
-                container.Style = MappingStyle.Flow;
-                return container;
+            SaveProperty(mappingNode, propertyName, property, (ulong value) => {
+                return new YamlScalarNode(value.ToString());
             });
         }
+        
         protected void LoadProperty<T>(YamlMappingNode mappingNode, string propertyName, DiffableProperty<T> property, Func<YamlNode, T> handler )
         {
             var key = new YamlScalarNode(propertyName);
@@ -161,6 +161,38 @@ namespace UnityMergeTool
             return mine.valueChanged = !Helpers.ArraysEqual(mine.value, theirs.value);
         }
 
+        static protected bool DiffFileIdList(List<DiffableFileId> mine, List<DiffableFileId> theirs)
+        {
+            if (mine.Count == 0 && theirs.Count == 0)
+                return false;
+
+            if (mine.Count != theirs.Count)
+                return true;
+
+            for (int i = 0; i < mine.Count; ++i)
+            {
+                if (mine[i].Diff(theirs[i]))
+                    return true;
+            }
+
+            return false;
+        }
+
+        static protected void MergeFileIdList(List<DiffableFileId> mine, List<DiffableFileId> theirs, List<string> conflictReportLines, bool takeTheirs = true)
+        {
+            List<DiffableFileId> mineNotInTheirs = new List<DiffableFileId>();
+            List<DiffableFileId> thiersNotInMine = new List<DiffableFileId>();
+            foreach (var m in mine)
+            {
+                if (theirs.FirstOrDefault(fileid => fileid.Matches(m)) == null)
+                {
+                    
+                }
+            }   
+            //@TODO
+            //mine
+        }
+
         protected void DiffYamlProperties(object previousObj)
         {
             BaseData previous = previousObj as BaseData;
@@ -191,8 +223,6 @@ namespace UnityMergeTool
                 }
             }
         }
-
-
         
         protected void MergeYamlProperties(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
         {

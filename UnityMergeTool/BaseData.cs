@@ -17,12 +17,12 @@ namespace UnityMergeTool
         public string                    tag;
         
         public DiffableProperty<ulong>   fileId                      = new DiffableProperty<ulong>(); // Assigned from anchor id of root node in document
-        public DiffableProperty<ulong>   gameObjectId                = new DiffableProperty<ulong>(); // Not every node has this but enough do it's worth keeping in base
+        public DiffableFileId            gameObjectId                = new DiffableFileId();
         public DiffableProperty<int>     objectHideFlags             = new DiffableProperty<int>();
         public DiffableProperty<int>     serializedVersion           = new DiffableProperty<int>();
-        public DiffableProperty<ulong>   correspondingSourceObjectId = new DiffableProperty<ulong>();
-        public DiffableProperty<ulong>   prefabInstanceId            = new DiffableProperty<ulong>();
-        public DiffableProperty<ulong>   prefabAssetId               = new DiffableProperty<ulong>();
+        public DiffableFileId            correspondingSourceObjectId = new DiffableFileId();
+        public DiffableFileId            prefabInstanceId            = new DiffableFileId();
+        public DiffableFileId            prefabAssetId               = new DiffableFileId();
 
         public GameObjectData            gameObjectRef = null;
         
@@ -51,36 +51,38 @@ namespace UnityMergeTool
             
             _existingKeys.Clear();
            
-            LoadIntProperty    (mappingNode, "m_ObjectHideFlags",           objectHideFlags);
-            LoadFileIdProperty (mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
-            LoadFileIdProperty (mappingNode, "m_PrefabInstance",            prefabInstanceId);
-            LoadFileIdProperty (mappingNode, "m_PrefabAsset",               prefabAssetId);
-            LoadIntProperty    (mappingNode, "serializedVersion",           serializedVersion);
-            LoadFileIdProperty (mappingNode, "m_GameObject",                gameObjectId);
+            LoadIntProperty                 (mappingNode, "m_ObjectHideFlags", objectHideFlags);
+            correspondingSourceObjectId.Load(mappingNode, "m_CorrespondingSourceObject", _existingKeys); 
+            prefabInstanceId.Load           (mappingNode, "m_PrefabInstance", _existingKeys);
+            prefabAssetId.Load              (mappingNode, "m_PrefabAsset", _existingKeys);
+            LoadIntProperty                 (mappingNode, "serializedVersion", serializedVersion);
+            gameObjectId.Load               (mappingNode, "m_GameObject", _existingKeys);
         }
 
         protected void SaveBase(YamlMappingNode mappingNode)
         {
             mappingNode.Tag = new TagName(tag);
 
-            SaveIntProperty(mappingNode,    "m_ObjectHideFlags",           objectHideFlags);
-            SaveFileIdProperty(mappingNode, "m_CorrespondingSourceObject", correspondingSourceObjectId);
-            SaveFileIdProperty(mappingNode, "m_PrefabInstance",            prefabInstanceId);
-            SaveFileIdProperty(mappingNode, "m_PrefabAsset",               prefabAssetId);
-            SaveIntProperty(mappingNode,    "serializedVersion",           serializedVersion);
-            SaveFileIdProperty(mappingNode, "m_GameObject",                gameObjectId);
+            SaveIntProperty                 (mappingNode,"m_ObjectHideFlags", objectHideFlags);
+            correspondingSourceObjectId.Save(mappingNode);
+            prefabInstanceId.Save           (mappingNode);
+            prefabAssetId.Save              (mappingNode);
+            SaveIntProperty                 (mappingNode,"serializedVersion", serializedVersion);
+            gameObjectId.Save               (mappingNode);
         }
 
         protected bool DiffBase(BaseData previous)
         {
             _wasModified = false;
             _wasModified |= DiffProperty(fileId,            previous.fileId);
-            _wasModified |= DiffProperty(gameObjectId,      previous.gameObjectId);
+
+            _wasModified |= correspondingSourceObjectId.Diff(previous.correspondingSourceObjectId);
+            _wasModified |= gameObjectId.Diff(previous.gameObjectId);
             _wasModified |= DiffProperty(objectHideFlags,   previous.objectHideFlags);
             _wasModified |= DiffProperty(serializedVersion, previous.serializedVersion);
 
-            _wasModified |= DiffProperty(prefabInstanceId,  previous.prefabInstanceId);
-            _wasModified |= DiffProperty(prefabAssetId,     previous.prefabAssetId);
+            _wasModified |= prefabInstanceId.Diff(previous.prefabInstanceId);
+            _wasModified |= prefabAssetId.Diff(previous.prefabAssetId);
             
             return WasModified;
         }
@@ -89,11 +91,12 @@ namespace UnityMergeTool
         {
             var thiers = thiersObj as BaseData;
             fileId.value                      = MergeProperties(nameof(fileId),                     fileId,                      thiers.fileId,                      conflictReportLines, takeTheirs);
-            gameObjectId.value                = MergeProperties(nameof(gameObjectId),               gameObjectId,                thiers.gameObjectId,                conflictReportLines, takeTheirs);
             objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,             thiers.objectHideFlags,             conflictReportLines, takeTheirs);
-            correspondingSourceObjectId.value = MergeProperties(nameof(correspondingSourceObjectId),correspondingSourceObjectId, thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
-            prefabInstanceId.value            = MergeProperties(nameof(prefabInstanceId),           prefabInstanceId,            thiers.prefabInstanceId,            conflictReportLines, takeTheirs); 
-            prefabAssetId.value               = MergeProperties(nameof(prefabAssetId),              prefabAssetId,               thiers.prefabAssetId,               conflictReportLines, takeTheirs);
+            
+            gameObjectId.Merge               (thiers.gameObjectId, conflictReportLines, takeTheirs);
+            correspondingSourceObjectId.Merge(thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
+            prefabInstanceId.Merge           (thiers.prefabInstanceId, conflictReportLines, takeTheirs);
+            prefabAssetId.Merge              (thiers.prefabAssetId, conflictReportLines, takeTheirs);
         }
     }
     

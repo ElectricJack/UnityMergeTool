@@ -392,23 +392,23 @@ namespace UnityMergeTool
             _roots = new List<TransformData>();
             foreach (var transData in _transDatas)
             {
-                if (transData.parentId.value == 0)
+                if (transData.parentId.fileId.value == 0)
                 {
                     _roots.Add(transData);
                 }
 
                 // Associate transform with its game object
-                if (_gameObjectsById.ContainsKey(transData.gameObjectId.value))
+                if (_gameObjectsById.ContainsKey(transData.gameObjectId.fileId.value))
                 {
-                    var gameObj = _gameObjectsById[transData.gameObjectId.value];
+                    var gameObj = _gameObjectsById[transData.gameObjectId.fileId.value];
                     gameObj.transformRef = transData;
                     transData.gameObjectRef = gameObj;
                 }
 
                 // Update parent/child relationships
-                if (transData.parentId.value != 0 && _transformsById.ContainsKey(transData.parentId.value))
+                if (transData.parentId.fileId.value != 0 && _transformsById.ContainsKey(transData.parentId.fileId.value))
                 {
-                    transData.parentRef = _transformsById[transData.parentId.value];
+                    transData.parentRef = _transformsById[transData.parentId.fileId.value];
                 }
                 if (transData.childrenIds.value != null && transData.childrenIds.value.Length > 0)
                 {
@@ -441,20 +441,20 @@ namespace UnityMergeTool
             // Associate all monobehaviors with thier game objects
             foreach (var monoData in _monoDatas)
             {
-                if (!monoData.gameObjectId.assigned || monoData.gameObjectId.value == 0 ||
-                    !_gameObjectsById.ContainsKey(monoData.gameObjectId.value)) continue;
+                if (!monoData.gameObjectId.assigned || monoData.gameObjectId.fileId.value == 0 ||
+                    !_gameObjectsById.ContainsKey(monoData.gameObjectId.fileId.value)) continue;
 
-                monoData.gameObjectRef = _gameObjectsById[monoData.gameObjectId.value];
+                monoData.gameObjectRef = _gameObjectsById[monoData.gameObjectId.fileId.value];
                 monoData.gameObjectRef.componentRefs.Add(monoData);
             }
 
             // Associate any unmapped data to gameobjects
             foreach (var unmappedData in _unmappedDatas)
             {
-                if (!unmappedData.gameObjectId.assigned || unmappedData.gameObjectId.value == 0 ||
-                    !_gameObjectsById.ContainsKey(unmappedData.gameObjectId.value)) continue;
+                if (!unmappedData.gameObjectId.assigned || unmappedData.gameObjectId.fileId.value == 0 ||
+                    !_gameObjectsById.ContainsKey(unmappedData.gameObjectId.fileId.value)) continue;
 
-                unmappedData.gameObjectRef = _gameObjectsById[unmappedData.gameObjectId.value];
+                unmappedData.gameObjectRef = _gameObjectsById[unmappedData.gameObjectId.fileId.value];
                 unmappedData.gameObjectRef.componentRefs.Add(unmappedData);
             }
         }
@@ -510,6 +510,8 @@ namespace UnityMergeTool
                 newLine = Regex.Replace(newLine, "(\\s*[_\\w]+: )''", "$1");
                 newLine = Regex.Replace(newLine, "(\\s*[_\\w]+:) (&[0-9]+)", "$1");
                 newLine = Regex.Replace(newLine, "(&[0-9]+) ([_\\w]+:)", "$2");
+                
+                newLine = Regex.Replace(newLine, "{(component: {fileID: [0-9]+})}", "$1");
                 
                 var targetMatch = Regex.Match(newLine, "(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})");
                 if (targetMatch.Groups.Count == 4)

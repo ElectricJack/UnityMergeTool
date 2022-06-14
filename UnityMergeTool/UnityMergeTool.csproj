@@ -45,6 +45,7 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="BaseData.cs" />
+        <Compile Include="DiffableFileId.cs" />
         <Compile Include="DiffableProperty.cs" />
         <Compile Include="GameObjectData.cs" />
         <Compile Include="Helpers.cs" />

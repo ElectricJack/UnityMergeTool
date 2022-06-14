@@ -12,7 +12,7 @@ namespace UnityMergeTool
         public DiffableProperty<float[]>        localPosition        = new DiffableProperty<float[]>() {value = new float[3]};
         public DiffableProperty<float[]>        localScale           = new DiffableProperty<float[]>() {value = new float[3]};
         public DiffableProperty<ulong[]>        childrenIds          = new DiffableProperty<ulong[]>() { value = new ulong[0]};
-        public DiffableProperty<ulong>          parentId             = new DiffableProperty<ulong>();
+        public DiffableFileId                   parentId             = new DiffableFileId();
         public DiffableProperty<int>            rootOrder            = new DiffableProperty<int>();
 
         public DiffableProperty<float[]>        localEulerAnglesHint = new DiffableProperty<float[]>() {value = new float[3]};
@@ -51,7 +51,7 @@ namespace UnityMergeTool
                 }
             }
             
-            LoadFileIdProperty  (mappingNode, "m_Father",               parentId);
+            parentId.Load(mappingNode, "m_Father", _existingKeys);
             LoadIntProperty     (mappingNode, "m_RootOrder",            rootOrder);
             LoadVector3Property (mappingNode, "m_LocalEulerAnglesHint", localEulerAnglesHint);
             
@@ -79,7 +79,7 @@ namespace UnityMergeTool
                 mappingNode.Add(new YamlScalarNode("m_Children"), childNodes);
             }
             
-            SaveFileIdProperty  (mappingNode, "m_Father",               parentId);
+            parentId.Save(mappingNode);
             SaveIntProperty     (mappingNode, "m_RootOrder",            rootOrder);
             SaveVector3Property (mappingNode, "m_LocalEulerAnglesHint", localEulerAnglesHint);
             
@@ -94,7 +94,7 @@ namespace UnityMergeTool
             _wasModified |= DiffArrayProperty (localPosition,       previous.localPosition);
             _wasModified |= DiffArrayProperty (localScale,          previous.localScale);
             _wasModified |= DiffArrayProperty (childrenIds,         previous.childrenIds);
-            _wasModified |= DiffProperty      (parentId,            previous.parentId);
+            _wasModified |= parentId.Diff(previous.parentId);
             _wasModified |= DiffProperty      (rootOrder,           previous.rootOrder);
             _wasModified |= DiffArrayProperty (localEulerAnglesHint,previous.localEulerAnglesHint);
 
@@ -114,7 +114,7 @@ namespace UnityMergeTool
             localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        conflictReportLines, takeTheirs);
             localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           conflictReportLines, takeTheirs);
             childrenIds.value           = MergePropArray (nameof(childrenIds),          childrenIds,          thiers.childrenIds,          conflictReportLines, takeTheirs);
-            parentId.value              = MergeProperties(nameof(parentId),             parentId,             thiers.parentId,                  conflictReportLines, takeTheirs);
+            parentId.Merge(thiers.parentId, conflictReportLines, takeTheirs);
             rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,                 conflictReportLines, takeTheirs);
             localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, conflictReportLines, takeTheirs);
 

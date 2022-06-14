@@ -75,7 +75,6 @@ namespace UnityMergeTool
             MonoBehaviorData previous = previousObj as MonoBehaviorData;
             _wasModified = DiffBase(previous);
             
-            _wasModified |= DiffProperty      (gameObjectId,    previous.gameObjectId);
             _wasModified |= DiffProperty      (enabled,         previous.enabled);
             _wasModified |= DiffProperty      (editorHideFlags, previous.editorHideFlags);
             _wasModified |= DiffProperty      (scriptId,        previous.scriptId);
@@ -95,8 +94,7 @@ namespace UnityMergeTool
             var conflictReportLines = new List<string>();
             
             MergeBase(thiersObj, conflictReportLines, takeTheirs);
-                
-            gameObjectId.value    = MergeProperties(nameof(gameObjectId),    gameObjectId,    theirs.gameObjectId,    conflictReportLines, takeTheirs);
+            
             enabled.value         = MergeProperties(nameof(enabled),         enabled,         theirs.enabled,         conflictReportLines, takeTheirs);
             editorHideFlags.value = MergeProperties(nameof(editorHideFlags), editorHideFlags, theirs.editorHideFlags, conflictReportLines, takeTheirs);
             scriptId.value        = MergeProperties(nameof(scriptId),        scriptId,        theirs.scriptId,        conflictReportLines, takeTheirs);
