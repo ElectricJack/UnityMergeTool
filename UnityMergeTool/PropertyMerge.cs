@@ -87,16 +87,16 @@ namespace UnityMergeTool
             });
         }
 
-        protected void LoadUlongProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+        protected void LoadLongProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<long> property)
         {
             LoadProperty(mappingNode, propertyName, property, (node) => {
-                return ulong.Parse(((YamlScalarNode) node).Value);
+                return long.Parse(((YamlScalarNode) node).Value);
             });
         }
 
-        protected void SaveUlongProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<ulong> property)
+        protected void SaveLongProperty(YamlMappingNode mappingNode, string propertyName, DiffableProperty<long> property)
         {
-            SaveProperty(mappingNode, propertyName, property, (ulong value) => {
+            SaveProperty(mappingNode, propertyName, property, (long value) => {
                 return new YamlScalarNode(value.ToString());
             });
         }

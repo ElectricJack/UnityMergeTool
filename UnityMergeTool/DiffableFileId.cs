@@ -10,7 +10,7 @@ namespace UnityMergeTool
     {
         public bool                     assigned = false;
         public string                   propertyName;
-        public DiffableProperty<ulong>  fileId = new DiffableProperty<ulong>();
+        public DiffableProperty<long>   fileId = new DiffableProperty<long>();
         public DiffableProperty<string> guid   = new DiffableProperty<string>();
         public DiffableProperty<int>    type   = new DiffableProperty<int>();
         
@@ -20,7 +20,7 @@ namespace UnityMergeTool
             var target = propertyName == null? parent : Helpers.GetChildMapNode(parent, propertyName);
             if (target != null)
             {
-                LoadUlongProperty(target, "fileID", fileId);
+                LoadLongProperty(target, "fileID", fileId);
                 LoadStringProperty(target, "guid", guid);
                 LoadIntProperty(target, "type", type);
                 
@@ -36,7 +36,7 @@ namespace UnityMergeTool
             
             var target = propertyName == null? parent : new YamlMappingNode();
             
-            SaveUlongProperty(target, "fileID", fileId);
+            SaveLongProperty(target, "fileID", fileId);
             SaveStringProperty(target, "guid", guid);
             SaveIntProperty(target, "type", type);
             

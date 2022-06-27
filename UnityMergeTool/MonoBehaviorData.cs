@@ -24,7 +24,7 @@ namespace UnityMergeTool
             }
             return str + " }";
         }
-        public MonoBehaviorData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
+        public MonoBehaviorData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
             LoadBase(mappingNode, fileId, typeName, tag);
             

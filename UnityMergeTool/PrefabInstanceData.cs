@@ -79,7 +79,7 @@ namespace UnityMergeTool
         private DiffableFileId          _sourcePrefab = new DiffableFileId();
         
         
-        public PrefabInstanceData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
+        public PrefabInstanceData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
             LoadBase(mappingNode, fileId, typeName, tag);
 

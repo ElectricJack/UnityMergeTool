@@ -24,7 +24,7 @@ namespace UnityMergeTool
         public List<GameObjectData>   childRefs = new List<GameObjectData>();
         public GameObjectData         parentRef = null;
 
-        public GameObjectData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
+        public GameObjectData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
             LoadBase(mappingNode, fileId, typeName, tag);
 

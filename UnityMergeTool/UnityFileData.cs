@@ -23,16 +23,16 @@ namespace UnityMergeTool
 
         // Internal state after document loaded
         private List<GameObjectData>                  _goDatas;
-        private Dictionary<ulong, GameObjectData>     _gameObjectsById;
+        private Dictionary<long, GameObjectData>     _gameObjectsById;
         private List<MonoBehaviorData>                _monoDatas;
-        private Dictionary<ulong, MonoBehaviorData>   _monosById;
+        private Dictionary<long, MonoBehaviorData>   _monosById;
         private List<TransformData>                   _transDatas;
-        private Dictionary<ulong, TransformData>      _transformsById;
+        private Dictionary<long, TransformData>      _transformsById;
         private List<PrefabInstanceData>              _prefabDatas;
-        private Dictionary<ulong, PrefabInstanceData> _prefabsById;
+        private Dictionary<long, PrefabInstanceData> _prefabsById;
         private List<TransformData>                   _roots;
         private List<UnmappedData>                    _unmappedDatas;
-        private Dictionary<ulong, BaseData>           _allDatasById;
+        private Dictionary<long, BaseData>           _allDatasById;
         private List<BaseData>                        _allDatas;
         
         
@@ -133,7 +133,7 @@ namespace UnityMergeTool
         }
         
         
-        private bool DiffData<T>(Dictionary<ulong, T> baseDataById, List<T> myData) where T : BaseData
+        private bool DiffData<T>(Dictionary<long, T> baseDataById, List<T> myData) where T : BaseData
         {
             var foundDifferences = false;
             foreach (var monoData in myData)
@@ -287,17 +287,17 @@ namespace UnityMergeTool
                 LoadYamlDoc(doc.RootNode);
             }
 
-            _gameObjectsById = new Dictionary<ulong, GameObjectData>();
-            _transformsById  = new Dictionary<ulong, TransformData>();
-            _monosById       = new Dictionary<ulong, MonoBehaviorData>();
-            _prefabsById     = new Dictionary<ulong, PrefabInstanceData>();
-            _allDatasById    = new Dictionary<ulong, BaseData>();
+            _gameObjectsById = new Dictionary<long, GameObjectData>();
+            _transformsById  = new Dictionary<long, TransformData>();
+            _monosById       = new Dictionary<long, MonoBehaviorData>();
+            _prefabsById     = new Dictionary<long, PrefabInstanceData>();
+            _allDatasById    = new Dictionary<long, BaseData>();
 
             RebuildLinks();
         }
         private void LoadYamlDoc(YamlNode node)
         {
-            var fileId = ulong.Parse(node.Anchor.Value);
+            var fileId = long.Parse(node.Anchor.Value);
             
             // Examine the stream
             var mapping =  (YamlMappingNode)node;

@@ -11,7 +11,7 @@ namespace UnityMergeTool
         public DiffableProperty<float[]>        localRotation        = new DiffableProperty<float[]>() {value = new float[4]};
         public DiffableProperty<float[]>        localPosition        = new DiffableProperty<float[]>() {value = new float[3]};
         public DiffableProperty<float[]>        localScale           = new DiffableProperty<float[]>() {value = new float[3]};
-        public DiffableProperty<ulong[]>        childrenIds          = new DiffableProperty<ulong[]>() { value = new ulong[0]};
+        public DiffableProperty<long[]>         childrenIds          = new DiffableProperty<long[]>()  { value = new long[0]};
         public DiffableFileId                   parentId             = new DiffableFileId();
         public DiffableProperty<int>            rootOrder            = new DiffableProperty<int>();
 
@@ -30,7 +30,7 @@ namespace UnityMergeTool
                    (localScale.value != null? " scale: { " + localScale.value[0] + ", " + localScale.value[1] + ", " + localScale.value[2] + " } " : "") +
                    " rootOrder: " + rootOrder.value;
         }
-        public TransformData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
+        public TransformData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
             LoadBase(mappingNode, fileId, typeName, tag);
             
@@ -44,7 +44,7 @@ namespace UnityMergeTool
                 if (childNodes != null)
                 {
                     childrenIds.value = childNodes
-                        .Select(node => ulong.Parse(Helpers.GetChildScalarValue(node, "fileID")))
+                        .Select(node => long.Parse(Helpers.GetChildScalarValue(node, "fileID")))
                         .ToArray();
                     childrenIds.assigned = true;
                     _existingKeys.Add("m_Children");

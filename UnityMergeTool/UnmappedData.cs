@@ -19,7 +19,7 @@ namespace UnityMergeTool
             }
             return str + " }";
         }
-        public UnmappedData Load(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
+        public UnmappedData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
             LoadBase(mappingNode, fileId, typeName, tag);
             LoadYamlProperties(mappingNode);

@@ -16,7 +16,7 @@ namespace UnityMergeTool
         public string                    typeName;
         public string                    tag;
         
-        public DiffableProperty<ulong>   fileId                      = new DiffableProperty<ulong>(); // Assigned from anchor id of root node in document
+        public DiffableProperty<long>    fileId                      = new DiffableProperty<long>(); // Assigned from anchor id of root node in document
         public DiffableFileId            gameObjectId                = new DiffableFileId();
         public DiffableProperty<int>     objectHideFlags             = new DiffableProperty<int>();
         public DiffableProperty<int>     serializedVersion           = new DiffableProperty<int>();
@@ -43,7 +43,7 @@ namespace UnityMergeTool
         public abstract string LogString();
 
         
-        protected void LoadBase(YamlMappingNode mappingNode, ulong fileId, string typeName, string tag)
+        protected void LoadBase(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
             this.typeName = typeName;
             this.fileId.value = fileId;
