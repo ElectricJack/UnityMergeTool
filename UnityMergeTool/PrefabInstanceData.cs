@@ -17,6 +17,8 @@ namespace UnityMergeTool
             public DiffableProperty<YamlNode> value           = new DiffableProperty<YamlNode>();
             public DiffableFileId             objectReference = new DiffableFileId();
 
+            public string ScenePath =>
+                $"PrefabInstance.Modification fileId: {target.fileId.value} {target.guid.value} {target.type.value}";
             public Modification Load(YamlMappingNode mappingNode)
             {
                 target.Load(mappingNode, "target", _existingKeys);
@@ -198,15 +200,16 @@ namespace UnityMergeTool
             _transformParent.Merge(theirs._transformParent, conflictReportLines, takeTheirs);
 
             var modificationConflicts = "";
+            var localConflicts = false;
             _modifications = UnityFileData.MergeData(baseData._modifications, _modifications, theirs._modifications, ref modificationConflicts,
-                ref conflictsFound, takeTheirs);
+                ref localConflicts, takeTheirs);
             _removedComponents = UnityFileData.MergeData(baseData._removedComponents, _removedComponents, theirs._removedComponents, ref modificationConflicts,
-                ref conflictsFound, takeTheirs);
+                ref localConflicts, takeTheirs);
             
-            if (conflictReportLines.Count > 0 || conflictsFound)
+            if (conflictReportLines.Count > 0 || localConflicts)
             {
                 conflictsFound = true;
-                conflictReport += "\nConflict on PrefabInstance: " + ScenePath + "\n";
+                conflictReport += "\nConflict on PrefabInstance: " + fileId.value + "\n";
                 foreach (var line in conflictReportLines)
                 {
                     conflictReport += "  " + line + "\n";

@@ -17,6 +17,9 @@ namespace UnityMergeTool
 
         public DiffableProperty<float[]>        localEulerAnglesHint = new DiffableProperty<float[]>() {value = new float[3]};
 
+
+        //public List<long> lostChildren = new List<long>();
+
         public override string ScenePath => gameObjectRef != null? gameObjectRef.ScenePath : "";
         
         public List<TransformData> childRefs = new List<TransformData>();
@@ -113,7 +116,11 @@ namespace UnityMergeTool
             localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        conflictReportLines, takeTheirs);
             localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        conflictReportLines, takeTheirs);
             localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           conflictReportLines, takeTheirs);
-            childrenIds.value           = MergePropArray (nameof(childrenIds),          childrenIds,          thiers.childrenIds,          conflictReportLines, takeTheirs);
+            
+            // Children ID's in this case are duplicate information, we will rebuild these after the merge is complete from
+            //  all transforms known parents
+            childrenIds.value = null;
+
             parentId.Merge(thiers.parentId, conflictReportLines, takeTheirs);
             rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,                 conflictReportLines, takeTheirs);
             localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, conflictReportLines, takeTheirs);

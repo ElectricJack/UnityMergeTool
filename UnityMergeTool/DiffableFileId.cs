@@ -14,6 +14,9 @@ namespace UnityMergeTool
         public DiffableProperty<string> guid   = new DiffableProperty<string>();
         public DiffableProperty<int>    type   = new DiffableProperty<int>();
         
+        public string ScenePath =>
+            $"FileId Object: {fileId.value} {guid.value} {type.value}";        
+        
         public DiffableFileId Load(YamlMappingNode parent, string propertyName=null, List<string> existingKeys=null)
         {
             this.propertyName = propertyName;

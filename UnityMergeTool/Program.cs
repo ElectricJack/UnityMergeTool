@@ -22,12 +22,18 @@ namespace UnityMergeTool
                 }
                 
                 // merge "$BASE" "$REMOTE" "$LOCAL" "$MERGED"
-                
+
                 var curDir = Directory.GetCurrentDirectory();
-                var fileBase    = new UnityFileData($"{curDir}/{args[1]}");
-                var fileRemote  = new UnityFileData($"{curDir}/{args[2]}");
-                var fileLocal   = new UnityFileData($"{curDir}/{args[3]}");
-                var fileMerged  = $"{curDir}/{args[4]}";
+                var basePath   = $"{curDir}/{args[1].Substring(2)}";
+                var remotePath = $"{curDir}/{args[2].Substring(2)}";
+                var localPath  = $"{curDir}/{args[3].Substring(2)}";
+                var mergedPath = $"{curDir}/{args[4]}";
+
+                var fileBase    = new UnityFileData(basePath);
+                var fileRemote  = new UnityFileData(localPath);
+                var fileLocal   = new UnityFileData(remotePath);
+                var fileMerged  = mergedPath;
+                
                 var conflictFile = fileMerged + ".conflicts.txt";
     
                 var merged = fileLocal.Merge(fileBase, fileRemote, out string conflictReport, out bool conflictsFound);

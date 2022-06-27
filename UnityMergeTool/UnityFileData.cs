@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -172,7 +173,7 @@ namespace UnityMergeTool
                 if (foundRemoved != null && foundRemoved.WasModified)
                 {
                     // @TODO: Report it, and add it to data we should preserve
-                    conflictReport += "Conflict found! Remote changed data I removed";
+                    conflictReport += $"Conflict found! Remote changed data that was removed in mine. ({foundRemoved.ScenePath})\n";
                     conflictsFound = true;
 
                     conflictedToPreserve.Add(foundRemoved); // Note we are saving the version with their changes
@@ -186,7 +187,7 @@ namespace UnityMergeTool
                 if (foundRemoved != null && foundRemoved.WasModified)
                 {
                     // @TODO: Report it, and add it to data we should preserve
-                    conflictReport += "Conflict found! I changed data remote removed";
+                    conflictReport += $"Conflict found! I changed data that was removed in remote. ({foundRemoved.ScenePath})\n";
                     conflictsFound = true;
                     
                     conflictedToPreserve.Add(foundRemoved); // Note we are saving the version with their changes
@@ -292,7 +293,7 @@ namespace UnityMergeTool
             _monosById       = new Dictionary<long, MonoBehaviorData>();
             _prefabsById     = new Dictionary<long, PrefabInstanceData>();
             _allDatasById    = new Dictionary<long, BaseData>();
-
+            
             RebuildLinks();
         }
         private void LoadYamlDoc(YamlNode node)
@@ -358,7 +359,7 @@ namespace UnityMergeTool
             }
             return yamlOut;
         }
-        
+
         private void RebuildLinks()
         {
             _gameObjectsById.Clear();
@@ -410,15 +411,27 @@ namespace UnityMergeTool
                 {
                     transData.parentRef = _transformsById[transData.parentId.fileId.value];
                 }
-                if (transData.childrenIds.value != null && transData.childrenIds.value.Length > 0)
+
+            }
+
+            foreach (var transData in _transDatas)
+            {
+                var children = _transDatas.Where(data => data.parentId.fileId.value == transData.fileId.value).ToArray();
+                if (children != null && children.Length > 0)
                 {
                     transData.childRefs.Clear();
-                    foreach (var childId in transData.childrenIds.value)
+                    transData.childrenIds.value = new long[children.Length];
+                    var index = 0;
+                    foreach (var child in children)
                     {
-                        var childTransform = _transformsById[childId];
-                        if (!transData.childRefs.Contains(childTransform))
-                            transData.childRefs.Add(childTransform);
+                        transData.childrenIds.value[index++] = child.fileId.value;
+                        if (!transData.childRefs.Contains(child))
+                            transData.childRefs.Add(child);
                     }
+                }
+                else
+                {
+                    transData.childrenIds.value = Array.Empty<long>();
                 }
             }
 

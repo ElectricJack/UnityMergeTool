@@ -8,6 +8,7 @@ namespace UnityMergeTool
     public interface IMergable
     {
         bool WasModified { get; }
+        string ScenePath { get; }
         bool Matches(IMergable other);
         void Merge(object baseObj, object theirsObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true);
     }
