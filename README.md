@@ -17,4 +17,6 @@ Download the latest release build for your platform and unzip it.
 ---
 ### Usage:
 
+Follows the same argument structure as YamlMergeTool so that it is easy to update SourceTree or any other source control's external merge tool.
+
     UnityMergeTool merge "BASE" "REMOTE" "LOCAL" "MERGED"
