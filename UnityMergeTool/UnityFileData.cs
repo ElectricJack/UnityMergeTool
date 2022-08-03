@@ -419,10 +419,11 @@ namespace UnityMergeTool
                 var children = _transDatas.Where(data => data.parentId.fileId.value == transData.fileId.value).ToArray();
                 if (children != null && children.Length > 0)
                 {
+                    var sortedChildren = children.OrderBy(data => data.rootOrder.value).ToArray();
                     transData.childRefs.Clear();
-                    transData.childrenIds.value = new long[children.Length];
+                    transData.childrenIds.value = new long[sortedChildren.Length];
                     var index = 0;
-                    foreach (var child in children)
+                    foreach (var child in sortedChildren)
                     {
                         transData.childrenIds.value[index++] = child.fileId.value;
                         if (!transData.childRefs.Contains(child))
