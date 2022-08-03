@@ -173,7 +173,8 @@ namespace UnityMergeTool
                     conflictReport += $"Conflict found! Remote changed data that was removed in mine. ({foundRemoved.ScenePath})\n";
                     conflictsFound = true;
 
-                    conflictedToPreserve.Add(foundRemoved); // Note we are saving the version with their changes
+                    // Saving data that was removed can cause missing file ptr references
+                    //conflictedToPreserve.Add(foundRemoved); 
                 }
             }
 
@@ -187,7 +188,8 @@ namespace UnityMergeTool
                     conflictReport += $"Conflict found! I changed data that was removed in remote. ({foundRemoved.ScenePath})\n";
                     conflictsFound = true;
                     
-                    conflictedToPreserve.Add(foundRemoved); // Note we are saving the version with their changes
+                    // Saving data that was removed can cause missing file ptr references
+                    //conflictedToPreserve.Add(foundRemoved); 
                 }
             }
             
@@ -520,10 +522,8 @@ namespace UnityMergeTool
             var r5 = new Regex("(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", RegexOptions.Singleline | RegexOptions.Compiled);
             var r6 = new Regex("(\\s*)-?( ?)[_\\w]+:", RegexOptions.Singleline | RegexOptions.Compiled);
             var r7 = new Regex("(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", RegexOptions.Singleline | RegexOptions.Compiled);
-            var r8 = new Regex("--- (&[0-9]+)", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r8 = new Regex("(--- )?(&[0-9]+)", RegexOptions.Singleline | RegexOptions.Compiled);
             //var r9 = new Regex(, RegexOptions.Singleline | RegexOptions.Compiled);
-            //var r10 = new Regex(, RegexOptions.Singleline | RegexOptions.Compiled);
-            
             
             for(int i=0; i<lines.Length; ++i)
             {
@@ -560,16 +560,16 @@ namespace UnityMergeTool
                     }
                 }
 
-                //var match = Regex.Match(newLine, "--- (&[0-9]+)");
+                //var match = Regex.Match(newLine, "(--- )?(&[0-9]+)");
                 var match = r8.Match(newLine);
                 if (line.Equals("&1"))
                 {
                     var map = _unityRefDict["&1"];
                     processedLines += "--- " + map.unityRef + " &1" + (map.stripped? " stripped" : "") + "\n";
                 }
-                else if (match.Success && match.Groups.Count == 2)
+                else if (match.Success && match.Groups.Count == 3)
                 {
-                    var yamlRef = match.Groups[1].Value;
+                    var yamlRef = match.Groups[2].Value;
 
                     if (!_unityRefDict.ContainsKey(yamlRef))
                     {
