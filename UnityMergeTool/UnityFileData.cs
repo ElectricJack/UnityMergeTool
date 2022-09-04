@@ -24,16 +24,13 @@ namespace UnityMergeTool
 
         // Internal state after document loaded
         private List<GameObjectData>                  _goDatas;
-        private Dictionary<long, GameObjectData>     _gameObjectsById;
+        private Dictionary<long, GameObjectData>      _gameObjectsById;
         private List<MonoBehaviorData>                _monoDatas;
-        private Dictionary<long, MonoBehaviorData>   _monosById;
         private List<TransformData>                   _transDatas;
-        private Dictionary<long, TransformData>      _transformsById;
-        private List<PrefabInstanceData>              _prefabDatas;
-        private Dictionary<long, PrefabInstanceData> _prefabsById;
+        private Dictionary<long, TransformData>       _transformsById;
         private List<TransformData>                   _roots;
         private List<UnmappedData>                    _unmappedDatas;
-        private Dictionary<long, BaseData>           _allDatasById;
+        private Dictionary<long, BaseData>            _allDatasById;
         private List<BaseData>                        _allDatas;
         
         
@@ -280,7 +277,7 @@ namespace UnityMergeTool
             _goDatas       = new List<GameObjectData>();
             _monoDatas     = new List<MonoBehaviorData>();
             _transDatas    = new List<TransformData>();
-            _prefabDatas   = new List<PrefabInstanceData>();
+            //_prefabDatas   = new List<PrefabInstanceData>();
             _unmappedDatas = new List<UnmappedData>();
             _allDatas      = new List<BaseData>();
             
@@ -290,8 +287,8 @@ namespace UnityMergeTool
 
             _gameObjectsById = new Dictionary<long, GameObjectData>();
             _transformsById  = new Dictionary<long, TransformData>();
-            _monosById       = new Dictionary<long, MonoBehaviorData>();
-            _prefabsById     = new Dictionary<long, PrefabInstanceData>();
+            // _monosById       = new Dictionary<long, MonoBehaviorData>();
+            // _prefabsById     = new Dictionary<long, PrefabInstanceData>();
             _allDatasById    = new Dictionary<long, BaseData>();
             
             RebuildLinks();
@@ -329,7 +326,7 @@ namespace UnityMergeTool
                 else if (scalarNode.Value.Equals("PrefabInstance"))
                 {
                     var data = new PrefabInstanceData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value, mapping.Tag.Value);
-                    _prefabDatas.Add(data);
+                    //_prefabDatas.Add(data);
                     _allDatas.Add(data);
                 }
                 else
@@ -364,7 +361,7 @@ namespace UnityMergeTool
         {
             _gameObjectsById.Clear();
             _transformsById.Clear();  
-            _monosById.Clear();
+            //_monosById.Clear();
             _allDatasById.Clear();
             
             // Store all gameObjects, transforms and components by id first
@@ -373,7 +370,7 @@ namespace UnityMergeTool
                 if (allData.GetType() == typeof(MonoBehaviorData))
                 {
                     var monoData = allData as MonoBehaviorData;
-                    _monosById.Add(monoData.fileId.value, monoData);
+                    //_monosById.Add(monoData.fileId.value, monoData);
                 }
                 else if (allData.GetType() == typeof(TransformData))
                 {
@@ -482,10 +479,13 @@ namespace UnityMergeTool
             _unityRefDict.Clear();
             _yamlVersionInfo  = lines[0];
             _unityVersionInfo = lines[1];
-            
+
+            var options = RegexOptions.Singleline | RegexOptions.Compiled;
+            var fileId =  new Regex("--- (!u![0-9]+) (&[0-9]+) ?(\\w*)", options);
+
             foreach (var line in lines)
             {
-                var match = Regex.Match(line, "--- (!u![0-9]+) (&[0-9]+) ?(\\w*)");
+                var match = fileId.Match(line);
                 if (match.Success && match.Groups.Count == 4)
                 {
                     var unityRef = match.Groups[1].Value;
@@ -493,7 +493,6 @@ namespace UnityMergeTool
                     _unityRefDict.Add(yamlRef, new UnityRefMap()
                     {
                         unityRef = unityRef,
-                        //yamlRef = yamlRef,
                         stripped = match.Groups[3].Value.Equals("stripped")
                     });
 
@@ -512,33 +511,57 @@ namespace UnityMergeTool
         {
             var lines = input.Split('\n');
             var processedLines = "";
+
+            var r0 = new Regex("(\\s*[\\-_\\w]:? )''", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r1 = new Regex("(\\s*[_\\w]+: )''", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r2 = new Regex("(\\s*[_\\w]+:) (&[0-9]+)", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r3 = new Regex("(&[0-9]+) ([_\\w]+:)", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r4 = new Regex("{(component: {fileID: [0-9]+})}", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r5 = new Regex("(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r6 = new Regex("(\\s*)-?( ?)[_\\w]+:", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r7 = new Regex("(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", RegexOptions.Singleline | RegexOptions.Compiled);
+            var r8 = new Regex("--- (&[0-9]+)", RegexOptions.Singleline | RegexOptions.Compiled);
+            //var r9 = new Regex(, RegexOptions.Singleline | RegexOptions.Compiled);
+            //var r10 = new Regex(, RegexOptions.Singleline | RegexOptions.Compiled);
             
-            //foreach (var line in lines)
+            
             for(int i=0; i<lines.Length; ++i)
             {
                 var line     = lines[i];
                 if (line.Equals("..."))
                     continue;
 
-                var newLine = Regex.Replace(line, "(\\s*[\\-_\\w]:? )''", "$1");
-                newLine = Regex.Replace(newLine, "(\\s*[_\\w]+: )''", "$1");
-                newLine = Regex.Replace(newLine, "(\\s*[_\\w]+:) (&[0-9]+)", "$1");
-                newLine = Regex.Replace(newLine, "(&[0-9]+) ([_\\w]+:)", "$2");
+                //var newLine = Regex.Replace(line, "(\\s*[\\-_\\w]:? )''", "$1");
+                var newLine = r0.Replace(line, "$1");
                 
-                newLine = Regex.Replace(newLine, "{(component: {fileID: [0-9]+})}", "$1");
+                //newLine = Regex.Replace(newLine, "(\\s*[_\\w]+: )''", "$1");
+                newLine = r1.Replace(newLine, "$1");
                 
-                var targetMatch = Regex.Match(newLine, "(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})");
+                //newLine = Regex.Replace(newLine, "(\\s*[_\\w]+:) (&[0-9]+)", "$1");
+                newLine = r2.Replace(newLine, "$1");
+                
+                //newLine = Regex.Replace(newLine, "(&[0-9]+) ([_\\w]+:)", "$2");
+                newLine = r3.Replace(newLine, "$2");
+                
+                //newLine = Regex.Replace(newLine, "{(component: {fileID: [0-9]+})}", "$1");
+                newLine = r4.Replace(newLine, "$1");
+                
+                //var targetMatch = Regex.Match(newLine, "(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})");
+                var targetMatch = r5.Match(newLine);
                 if (targetMatch.Groups.Count == 4)
                 {
                     var ident = targetMatch.Groups[1].Value;
                     if (newLine.Length >= 90)
                     {
-                        var leadingSpace = Regex.Replace(ident, "(\\s*)-?( ?)[_\\w]+:", "$1$2$2");
-                        newLine = Regex.Replace(newLine, "(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", "$1 $2\n"+leadingSpace+"  $3");
+                        //var leadingSpace = Regex.Replace(ident, "(\\s*)-?( ?)[_\\w]+:", "$1$2$2");
+                        var leadingSpace = r6.Replace(ident, "$1$2$2");
+                        //newLine = Regex.Replace(newLine, "(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", "$1 $2\n"+leadingSpace+"  $3");
+                        newLine = r7.Replace(newLine, "$1 $2\n"+leadingSpace+"  $3");
                     }
                 }
 
-                var match = Regex.Match(newLine, "--- (&[0-9]+)");
+                //var match = Regex.Match(newLine, "--- (&[0-9]+)");
+                var match = r8.Match(newLine);
                 if (line.Equals("&1"))
                 {
                     var map = _unityRefDict["&1"];
