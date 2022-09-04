@@ -26,6 +26,7 @@ namespace UnityMergeTool
         private List<GameObjectData>                  _goDatas;
         private Dictionary<long, GameObjectData>      _gameObjectsById;
         private List<MonoBehaviorData>                _monoDatas;
+        private Dictionary<long, MonoBehaviorData>    _monosById;
         private List<TransformData>                   _transDatas;
         private Dictionary<long, TransformData>       _transformsById;
         private List<TransformData>                   _roots;
@@ -289,7 +290,7 @@ namespace UnityMergeTool
 
             _gameObjectsById = new Dictionary<long, GameObjectData>();
             _transformsById  = new Dictionary<long, TransformData>();
-            // _monosById       = new Dictionary<long, MonoBehaviorData>();
+            _monosById       = new Dictionary<long, MonoBehaviorData>();
             // _prefabsById     = new Dictionary<long, PrefabInstanceData>();
             _allDatasById    = new Dictionary<long, BaseData>();
             
@@ -372,20 +373,36 @@ namespace UnityMergeTool
                 if (allData.GetType() == typeof(MonoBehaviorData))
                 {
                     var monoData = allData as MonoBehaviorData;
-                    //_monosById.Add(monoData.fileId.value, monoData);
+                    if (!_monosById.ContainsKey(monoData.fileId.value))
+                    {
+                        _monosById.Add(monoData.fileId.value, monoData);
+                        _allDatasById.Add(allData.fileId.value, allData);
+                    }
+                    else
+                        Console.WriteLine($"Duplicate monobehaviour with id {monoData.fileId.value} found.");
                 }
                 else if (allData.GetType() == typeof(TransformData))
                 {
                     var transData = allData as TransformData;
-                    _transformsById.Add(transData.fileId.value, transData);
+                    if (!_transformsById.ContainsKey(transData.fileId.value))
+                    {
+                        _transformsById.Add(transData.fileId.value, transData);
+                        _allDatasById.Add(allData.fileId.value, allData);
+                    }
+                    else
+                        Console.WriteLine($"Duplicate transform with id {transData.fileId.value} found.");
                 }
                 else if (allData.GetType() == typeof(GameObjectData))
                 {
                     var gameObjectData = allData as GameObjectData;
-                    _gameObjectsById.Add(gameObjectData.fileId.value, gameObjectData);
+                    if (!_gameObjectsById.ContainsKey(gameObjectData.fileId.value))
+                    {
+                        _gameObjectsById.Add(gameObjectData.fileId.value, gameObjectData);
+                        _allDatasById.Add(allData.fileId.value, allData);
+                    }
+                    else
+                        Console.WriteLine($"Duplicate gameobject with id {gameObjectData.fileId.value} found.");
                 }
-
-                _allDatasById.Add(allData.fileId.value, allData);
             }
             
             // Next build transform hierarchy, and save off any roots
