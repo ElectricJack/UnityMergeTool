@@ -9,8 +9,11 @@ namespace UnityMergeTool
     {
         bool WasModified { get; }
         string ScenePath { get; }
+        long FileId { get; }
+
+        string LogString();
         bool Matches(IMergable other);
-        void Merge(object baseObj, object theirsObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true);
+        void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true);
     }
     abstract class BaseData : PropertyMerge, IMergable
     {
@@ -26,6 +29,8 @@ namespace UnityMergeTool
         public DiffableFileId            prefabAssetId               = new DiffableFileId();
 
         public GameObjectData            gameObjectRef = null;
+
+        public long FileId => fileId.value;
         
         public bool Matches(IMergable other)
         {
@@ -38,7 +43,7 @@ namespace UnityMergeTool
 
         public abstract string ScenePath { get; }
         public abstract bool Diff(object previous);
-        public abstract void Merge(object baseObj, object theirsObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true);
+        public abstract void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true);
 
         public abstract void Save(YamlMappingNode node);
         public abstract string LogString();
@@ -88,16 +93,16 @@ namespace UnityMergeTool
             return WasModified;
         }
         
-        protected void MergeBase(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
+        protected void MergeBase(object thiersObj, MergeReport report, bool takeTheirs = true)
         {
             var thiers = thiersObj as BaseData;
-            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,                      thiers.fileId,                      conflictReportLines, takeTheirs);
-            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,             thiers.objectHideFlags,             conflictReportLines, takeTheirs);
+            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,                      thiers.fileId,                      report, takeTheirs);
+            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,             thiers.objectHideFlags,             report, takeTheirs);
             
-            gameObjectId.Merge               (thiers.gameObjectId, conflictReportLines, takeTheirs);
-            correspondingSourceObjectId.Merge(thiers.correspondingSourceObjectId, conflictReportLines, takeTheirs);
-            prefabInstanceId.Merge           (thiers.prefabInstanceId, conflictReportLines, takeTheirs);
-            prefabAssetId.Merge              (thiers.prefabAssetId, conflictReportLines, takeTheirs);
+            gameObjectId.Merge               (thiers.gameObjectId, report, takeTheirs);
+            correspondingSourceObjectId.Merge(thiers.correspondingSourceObjectId, report, takeTheirs);
+            prefabInstanceId.Merge           (thiers.prefabInstanceId, report, takeTheirs);
+            prefabAssetId.Merge              (thiers.prefabAssetId, report, takeTheirs);
         }
     }
     

@@ -10,14 +10,14 @@ namespace UnityMergeTool
 
         public override string LogString()
         {
-            var str = typeName + " "+fileId.value+" { ";
-            bool first = true;
-            foreach (var pair in additionalData)
-            {
-                str += (!first? ", " : "") + pair.Key + ": " + pair.Value.value;
-                first = false;
-            }
-            return str + " }";
+            var str = typeName + " " + fileId.value; //+" { ";
+            // bool first = true;
+            // foreach (var pair in additionalData)
+            // {
+            //     str += (!first? ", " : "") + pair.Key + ": " + pair.Value.value;
+            //     first = false;
+            // }
+            return str;// + " }";
         }
         public UnmappedData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
@@ -38,22 +38,11 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public override void Merge(object baseObj, object thiersObj, ref string conflictReport, ref bool conflictsFound,
+        public override void Merge(object baseObj, object thiersObj, MergeReport report,
             bool takeTheirs = true)
         {
             var conflictReportLines = new List<string>();
-            MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
-            
-            if (conflictReportLines.Count > 0)
-            {
-                MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
-                
-                conflictsFound = true;
-                conflictReport += "\nConflict on "+typeName+" at "+ScenePath+"\n";
-                foreach (var line in conflictReportLines) {
-                    conflictReport += "  " + line + "\n";
-                }
-            }
+            MergeYamlProperties(thiersObj, report, takeTheirs);
         }
     }
 }

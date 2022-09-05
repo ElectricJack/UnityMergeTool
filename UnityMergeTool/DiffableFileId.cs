@@ -15,8 +15,10 @@ namespace UnityMergeTool
         public DiffableProperty<int>    type   = new DiffableProperty<int>();
         
         public string ScenePath =>
-            $"FileId Object: {fileId.value} {guid.value} {type.value}";        
-        
+            $"FileId Object: {fileId.value} {guid.value} {type.value}";
+
+        public long FileId => fileId.value;
+
         public DiffableFileId Load(YamlMappingNode parent, string propertyName=null, List<string> existingKeys=null)
         {
             this.propertyName = propertyName;
@@ -61,27 +63,27 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public void Merge(object baseObj, object theirsObj, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true)
+        public void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
         {
             DiffableFileId theirs = theirsObj as DiffableFileId;
-            var conflictReportLines = new List<string>();
-            Merge(theirs, conflictReportLines, takeTheirs);
+            //var conflictReportLines = new List<string>();
+            Merge(theirs, report, takeTheirs);
 
-            if (conflictReportLines.Count > 0)
-            {
-                conflictsFound = true;
-                conflictReport += "\nConflict on FileId: " + fileId.value + " - " + guid.value +"\n";
-                foreach (var line in conflictReportLines)
-                {
-                    conflictReport += "  " + line + "\n";
-                }
-            }
+            // if (conflictReportLines.Count > 0)
+            // {
+            //     conflictsFound = true;
+            //     conflictReport += "\nConflict on FileId: " + fileId.value + " - " + guid.value +"\n";
+            //     foreach (var line in conflictReportLines)
+            //     {
+            //         conflictReport += "  " + line + "\n";
+            //     }
+            // }
         }
-        public void Merge(DiffableFileId theirs, List<string> conflictReportLines, bool takeTheirs = true)
+        public void Merge(DiffableFileId theirs, MergeReport report, bool takeTheirs = true)
         {
-            MergeProperties(propertyName + ".fileID", fileId, theirs.fileId,  conflictReportLines, takeTheirs);
-            MergeProperties(propertyName + ".guid", guid, theirs.guid,  conflictReportLines, takeTheirs);
-            MergeProperties(propertyName + ".type", type, theirs.type,  conflictReportLines, takeTheirs);
+            MergeProperties(propertyName + ".fileID", fileId, theirs.fileId,  report, takeTheirs);
+            MergeProperties(propertyName + ".guid", guid, theirs.guid,  report, takeTheirs);
+            MergeProperties(propertyName + ".type", type, theirs.type,  report, takeTheirs);
         }
         
         public bool Matches(DiffableFileId other)
@@ -89,6 +91,11 @@ namespace UnityMergeTool
             return fileId.value == other.fileId.value &&
                    guid.value   == other.guid.value &&
                    type.value   == other.type.value;
+        }
+
+        public string LogString()
+        {
+            return "FileId " + fileId.value;
         }
 
         public bool Matches(IMergable other)

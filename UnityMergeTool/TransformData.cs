@@ -27,11 +27,7 @@ namespace UnityMergeTool
 
         public override string LogString()
         {
-            return "Transform "+fileId.value+" -"+
-                   (localPosition.value != null? " pos: { " + localPosition.value[0] + ", " + localPosition.value[1] + ", " + localPosition.value[2] + " } " : "") +
-                   (localRotation.value != null? " rot: { " + localRotation.value[0] + ", " + localRotation.value[1] + ", " + localRotation.value[2] + ", " + localRotation.value[3] + " } " : "") +
-                   (localScale.value != null? " scale: { " + localScale.value[0] + ", " + localScale.value[1] + ", " + localScale.value[2] + " } " : "") +
-                   " rootOrder: " + rootOrder.value;
+            return "Transform " + fileId.value;
         }
         public TransformData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
@@ -105,37 +101,29 @@ namespace UnityMergeTool
             
             return WasModified;
         }
-        public override void Merge(object baseObj, object thiersObj, ref string conflictReport, ref bool conflictsFound,
-            bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, MergeReport report, bool takeTheirs = true)
         {
             var thiers = thiersObj as TransformData;
-            var conflictReportLines = new List<string>();
-                
-            MergeBase(thiersObj, conflictReportLines, takeTheirs);
             
-            localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        conflictReportLines, takeTheirs);
-            localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        conflictReportLines, takeTheirs);
-            localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           conflictReportLines, takeTheirs);
+            report.Push(LogString(), ScenePath);
+                
+            MergeBase(thiersObj, report, takeTheirs);
+            
+            localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        report, takeTheirs);
+            localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        report, takeTheirs);
+            localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           report, takeTheirs);
             
             // Children ID's in this case are duplicate information, we will rebuild these after the merge is complete from
             //  all transforms known parents
             childrenIds.value = null;
 
-            parentId.Merge(thiers.parentId, conflictReportLines, takeTheirs);
-            rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,                 conflictReportLines, takeTheirs);
-            localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, conflictReportLines, takeTheirs);
+            parentId.Merge(thiers.parentId, report, takeTheirs);
+            rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,            report, takeTheirs);
+            localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, report, takeTheirs);
 
-            MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
+            MergeYamlProperties(thiersObj, report, takeTheirs);
             
-            if (conflictReportLines.Count > 0)
-            {
-                conflictsFound = true;
-                conflictReport += "\nConflict on Transform of node: " + ScenePath + "\n";
-                foreach (var line in conflictReportLines) {
-                    conflictReport += "  " + line + "\n";
-                }
-            }
-
+            report.Pop();
         }
     }
 }

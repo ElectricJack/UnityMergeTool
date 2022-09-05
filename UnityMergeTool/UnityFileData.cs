@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
@@ -82,26 +83,23 @@ namespace UnityMergeTool
             return DiffData(baseFile._allDatasById, _allDatas) || foundDifferences;
         }
 
-        public UnityFileData Merge(UnityFileData baseFile, UnityFileData thierFile, out string conflictReport, out bool conflictsFound, bool takeTheirs = true)
+        public UnityFileData Merge(UnityFileData baseFile, UnityFileData thierFile, out MergeReport report, bool takeTheirs = true)
         {
-            conflictReport = "";
-            conflictsFound = false;
+            report = new MergeReport();
             
             bool myDiff    = Diff(baseFile);
             bool thierDiff = thierFile.Diff(baseFile);
 
             // Nothing to do
-            if (!myDiff && !thierDiff)
-                return this;
+            if (!myDiff && !thierDiff) return this;
 
             // If my document has no changes take theirs
-            if (!myDiff)
-                return thierFile;
+            if (!myDiff) return thierFile;
 
-            conflictReport = "Merge Conflict Report: \n\n";
-            
-            _allDatas = MergeData(baseFile._allDatas, _allDatas, thierFile._allDatas, ref conflictReport, ref conflictsFound, takeTheirs);
+            report.Begin();
+            _allDatas = MergeData(baseFile._allDatas, _allDatas, thierFile._allDatas, report, takeTheirs);
             RebuildLinks();
+            report.End();
 
             // Combine all the unity ref dictionaries for post processing step
             foreach (var item in baseFile._unityRefDict)
@@ -130,6 +128,19 @@ namespace UnityMergeTool
                     LogGameObjectRecurse(root.gameObjectRef);                
             }
         }
+        private void LogGameObjectRecurse(GameObjectData node, string indent = "")
+        {
+            if (node == null) return;
+            
+            Console.WriteLine(node.ScenePath + " " + node.LogString());
+            Console.WriteLine(indent + "  - " + node.transformRef.LogString());
+            foreach (var componentRef in node.componentRefs)
+                Console.WriteLine(indent + "  - " + componentRef.LogString());
+            
+            foreach (var child in node.childRefs) {
+                LogGameObjectRecurse(child, indent + "  ");
+            }
+        }
         
         
         private bool DiffData<T>(Dictionary<long, T> baseDataById, List<T> myData) where T : BaseData
@@ -155,27 +166,22 @@ namespace UnityMergeTool
 
             return foundDifferences;
         }
-        public static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, ref string conflictReport, ref bool conflictsFound, bool takeTheirs = true) where T : IMergable
+        public static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, MergeReport report, bool takeTheirs = true) where T : IMergable
         {
             // First determine what I added and removed and what they added and removed.
-            FindAddedAndRemoved<T>(baseDatas, myData,    out List<T> myAdded, out List<T> myRemoved );
+            FindAddedAndRemoved<T>(baseDatas, myData,    out List<T> myAdded,    out List<T> myRemoved );
             FindAddedAndRemoved<T>(baseDatas, thierData, out List<T> thierAdded, out List<T> thierRemoved );
 
-            var conflictedToPreserve = new List<T>();
-            
             // Check if the they modified anything that we removed or vice versa, if so we need to report it and KEEP the data that was removed (easier to remove it again later then to add it back)
             foreach (var myRemovedData in myRemoved)
             {
                 // If we find data I removed in their dataset and it was modified
                 var foundRemoved = thierData.FirstOrDefault(item => item.Matches(myRemovedData));
-                if (foundRemoved != null && foundRemoved.WasModified)
+                if (foundRemoved is {WasModified: true})
                 {
-                    // @TODO: Report it, and add it to data we should preserve
-                    conflictReport += $"Conflict found! Remote changed data that was removed in mine. ({foundRemoved.ScenePath})\n";
-                    conflictsFound = true;
-
-                    // Saving data that was removed can cause missing file ptr references
-                    //conflictedToPreserve.Add(foundRemoved); 
+                    report.Push(foundRemoved.LogString(), foundRemoved.ScenePath);
+                    report.AddConflict(foundRemoved,$"{foundRemoved.LogString()} was removed in mine, but modified in theirs.");
+                    report.Pop();
                 }
             }
 
@@ -183,14 +189,11 @@ namespace UnityMergeTool
             {
                 // If we find data they removed that I changed
                 var foundRemoved = myData.FirstOrDefault(item => item.Matches(thierRemovedData));
-                if (foundRemoved != null && foundRemoved.WasModified)
+                if (foundRemoved is {WasModified: true})
                 {
-                    // @TODO: Report it, and add it to data we should preserve
-                    conflictReport += $"Conflict found! I changed data that was removed in remote. ({foundRemoved.ScenePath})\n";
-                    conflictsFound = true;
-                    
-                    // Saving data that was removed can cause missing file ptr references
-                    //conflictedToPreserve.Add(foundRemoved); 
+                    report.Push(foundRemoved.LogString(), foundRemoved.ScenePath);
+                    report.AddConflict(foundRemoved,$"{foundRemoved.LogString()} was removed in theirs, but modified in mine.");
+                    report.Pop();
                 }
             }
             
@@ -220,15 +223,11 @@ namespace UnityMergeTool
                 var foundInMine   = myData.First(item => item.Matches(sharedData));
                 var foundInTheirs = thierData.First(item => item.Matches(sharedData));
 
-                foundInMine.Merge(foundInBase, foundInTheirs, ref conflictReport, ref conflictsFound, takeTheirs);
+                foundInMine.Merge(foundInBase, foundInTheirs, report, takeTheirs);
             }
             
             // Add anything new from theirs to mine, there will be no conflicts here
             myData.AddRange(thierAdded);
-            
-            // Add back any conflicted modified data
-            myData.AddRange(conflictedToPreserve);
-
             return myData;
         }
         private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : IMergable
@@ -257,41 +256,25 @@ namespace UnityMergeTool
                 }
             }
         }
-        private void LogGameObjectRecurse(GameObjectData node, string indent = "")
-        {
-            if (node == null) return;
-            
-            Console.WriteLine(indent + node.LogString());
-            Console.WriteLine(indent + "  - " + node.transformRef.LogString());
-            foreach (var componentRef in node.componentRefs)
-            {
-                Console.WriteLine(indent + "  - " + componentRef.LogString());
-            }
-            
-            foreach (var child in node.childRefs) {
-                LogGameObjectRecurse(child, indent + "  ");
-            }
-        }
-
-        
         
         private void LoadYamlStream()
         {
             _goDatas       = new List<GameObjectData>();
             _monoDatas     = new List<MonoBehaviorData>();
             _transDatas    = new List<TransformData>();
-            //_prefabDatas   = new List<PrefabInstanceData>();
             _unmappedDatas = new List<UnmappedData>();
             _allDatas      = new List<BaseData>();
-            
+
+            var total = _yaml.Documents.Count;
+            Console.Write($"Documents to load: {total} ");
             foreach (var doc in _yaml.Documents) {
                 LoadYamlDoc(doc.RootNode);
             }
+            Console.WriteLine("Done.");
 
             _gameObjectsById = new Dictionary<long, GameObjectData>();
             _transformsById  = new Dictionary<long, TransformData>();
             _monosById       = new Dictionary<long, MonoBehaviorData>();
-            // _prefabsById     = new Dictionary<long, PrefabInstanceData>();
             _allDatasById    = new Dictionary<long, BaseData>();
             
             RebuildLinks();
@@ -314,7 +297,7 @@ namespace UnityMergeTool
                     _goDatas.Add(data);
                     _allDatas.Add(data);
                 }
-                else if (scalarNode.Value.Equals("Transform"))
+                else if (scalarNode.Value.Equals("Transform") || scalarNode.Value.Equals("RectTransform"))
                 {
                     var data = new TransformData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value, mapping.Tag.Value);
                     _transDatas.Add(data);
@@ -363,9 +346,9 @@ namespace UnityMergeTool
         private void RebuildLinks()
         {
             _gameObjectsById.Clear();
-            _transformsById.Clear();  
-            //_monosById.Clear();
+            _transformsById.Clear();
             _allDatasById.Clear();
+            _monosById.Clear();
             
             // Store all gameObjects, transforms and components by id first
             foreach (var allData in _allDatas)
@@ -379,7 +362,7 @@ namespace UnityMergeTool
                         _allDatasById.Add(allData.fileId.value, allData);
                     }
                     else
-                        Console.WriteLine($"Duplicate monobehaviour with id {monoData.fileId.value} found.");
+                        Console.WriteLine($"Duplicate MonoBehaviour with id {monoData.fileId.value} found.");
                 }
                 else if (allData.GetType() == typeof(TransformData))
                 {
@@ -491,8 +474,9 @@ namespace UnityMergeTool
  
         private string PreProcessUnityYAML(string input)
         {
-            var lines            = input.Split('\n');
-            var processedLines          = "";
+            Console.WriteLine($"PreProcessing YAML");
+            var lines = input.Split('\n');
+            Console.Write($"Total lines: {lines.Length} ");
             
             // Need to store off header comment for version info
             _unityRefDict.Clear();
@@ -502,6 +486,7 @@ namespace UnityMergeTool
             var options = RegexOptions.Singleline | RegexOptions.Compiled;
             var fileId =  new Regex("--- (!u![0-9]+) (&[0-9]+) ?(\\w*)", options);
 
+            var processedLines = new StringBuilder();
             foreach (var line in lines)
             {
                 var match = fileId.Match(line);
@@ -515,21 +500,22 @@ namespace UnityMergeTool
                         stripped = match.Groups[3].Value.Equals("stripped")
                     });
 
-                    var newLine = "--- " + unityRef + " " + yamlRef + "\n";
-                    processedLines += newLine;
+                    processedLines.Append($"--- {unityRef} {yamlRef}\n");
                 }
                 else
                 {
-                    processedLines += line + "\n";    
+                    processedLines.Append($"{line}\n");
                 }
             }
+            
+            Console.WriteLine("Done.");
 
-            return processedLines;
+            return processedLines.ToString();
         }
         private string PostProcessUnityYAML(string input)
         {
             var lines = input.Split('\n');
-            var processedLines = "";
+            
 
             var r0 = new Regex("(\\s*[\\-_\\w]:? )''", RegexOptions.Singleline | RegexOptions.Compiled);
             var r1 = new Regex("(\\s*[_\\w]+: )''", RegexOptions.Singleline | RegexOptions.Compiled);
@@ -541,7 +527,8 @@ namespace UnityMergeTool
             var r7 = new Regex("(\\s*-? ?[_\\w]+:) ({fileID: [\\-0-9]+, guid: [\\w]+,) (type: [0-9]+})", RegexOptions.Singleline | RegexOptions.Compiled);
             var r8 = new Regex("(--- )?(&[0-9]+)", RegexOptions.Singleline | RegexOptions.Compiled);
             //var r9 = new Regex(, RegexOptions.Singleline | RegexOptions.Compiled);
-            
+
+            var processedLines = new StringBuilder();
             for(int i=0; i<lines.Length; ++i)
             {
                 var line     = lines[i];
@@ -582,7 +569,8 @@ namespace UnityMergeTool
                 if (line.Equals("&1"))
                 {
                     var map = _unityRefDict["&1"];
-                    processedLines += "--- " + map.unityRef + " &1" + (map.stripped? " stripped" : "") + "\n";
+                    //processedLines += "--- " + map.unityRef + " &1" + (map.stripped? " stripped" : "") + "\n";
+                    processedLines.Append($"--- {map.unityRef} &1{(map.stripped ? " stripped" : "")}\n");
                 }
                 else if (match.Success && match.Groups.Count == 3)
                 {
@@ -591,21 +579,24 @@ namespace UnityMergeTool
                     if (!_unityRefDict.ContainsKey(yamlRef))
                     {
                         Console.WriteLine("yaml ref not found: " + yamlRef);
-                        processedLines += newLine + "\n";
+                        //processedLines += newLine + "\n";
+                        processedLines.Append($"{newLine}\n");
                         continue;
                     }
 
                     var map = _unityRefDict[yamlRef];
                     
-                    processedLines += "--- " + map.unityRef + " " + yamlRef + (map.stripped? " stripped" : "") + "\n";
+                    //processedLines += "--- " + map.unityRef + " " + yamlRef + (map.stripped? " stripped" : "") + "\n";
+                    processedLines.Append($"--- {map.unityRef} {yamlRef}{(map.stripped ? " stripped" : "")}\n");
                 }
                 else
                 {
-                    processedLines += newLine + (i < lines.Length-1 ? "\n" : "");    
+                    //processedLines += newLine + (i < lines.Length-1 ? "\n" : "");    
+                    processedLines.Append(newLine + (i < lines.Length - 1 ? "\n" : ""));
                 }
             }
 
-            return processedLines;
+            return processedLines.ToString();
         }
     }
 }

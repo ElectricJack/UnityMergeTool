@@ -17,8 +17,9 @@ namespace UnityMergeTool
             public DiffableProperty<YamlNode> value           = new DiffableProperty<YamlNode>();
             public DiffableFileId             objectReference = new DiffableFileId();
 
-            public string ScenePath =>
-                $"PrefabInstance.Modification fileId: {target.fileId.value} {target.guid.value} {target.type.value}";
+            public string ScenePath => LogString();
+            public long FileId => target.fileId.value;
+
             public Modification Load(YamlMappingNode mappingNode)
             {
                 target.Load(mappingNode, "target", _existingKeys);
@@ -44,6 +45,11 @@ namespace UnityMergeTool
                 return WasModified;
             }
 
+            public string LogString()
+            {
+                return $"PrefabInstance.Modification fileId: {target.fileId.value} {target.guid.value} {target.type.value}";
+            }
+
             public bool Matches(IMergable other)
             {
                 Modification theirs = other as Modification;
@@ -53,24 +59,11 @@ namespace UnityMergeTool
                        propertyPath.value == theirs.propertyPath.value;
             }
 
-            public void Merge(object baseObj, object theirsObj, ref string conflictReport, ref bool conflictsFound,
-                bool takeTheirs = true)
+            public void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
             {
                 var thiers = theirsObj as Modification;
-                var conflictReportLines = new List<string>();
-                
-                value.value = MergeProperties(nameof(value), value,thiers.value, conflictReportLines, takeTheirs);
-                objectReference.Merge(thiers.objectReference, conflictReportLines, takeTheirs);
-                
-                if (conflictReportLines.Count > 0)
-                {
-                    conflictsFound = true;
-                    conflictReport += "\n   Conflict on modification target id: " + target.fileId.value + " property: " + propertyPath.value + "\n";
-                    foreach (var line in conflictReportLines)
-                    {
-                        conflictReport += "  " + line + "\n";
-                    }
-                }
+                value.value = MergeProperties(nameof(value), value,thiers.value, report, takeTheirs);
+                objectReference.Merge(thiers.objectReference, report, takeTheirs);
             }
         }
        
@@ -189,40 +182,28 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public override void Merge(object baseObj, object theirsObj, ref string conflictReport, ref bool conflictsFound,
-            bool takeTheirs = true)
+        public override void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
         {
             PrefabInstanceData baseData = baseObj as PrefabInstanceData;
             PrefabInstanceData theirs = theirsObj as PrefabInstanceData;
-            var conflictReportLines = new List<string>();
             
-            MergeBase(theirsObj, conflictReportLines, takeTheirs);
-            _transformParent.Merge(theirs._transformParent, conflictReportLines, takeTheirs);
+            report.Push(LogString(), ScenePath);
+            
+            MergeBase(theirsObj, report, takeTheirs);
+            _transformParent.Merge(theirs._transformParent, report, takeTheirs);
 
             var modificationConflicts = "";
             var localConflicts = false;
-            _modifications = UnityFileData.MergeData(baseData._modifications, _modifications, theirs._modifications, ref modificationConflicts,
-                ref localConflicts, takeTheirs);
-            _removedComponents = UnityFileData.MergeData(baseData._removedComponents, _removedComponents, theirs._removedComponents, ref modificationConflicts,
-                ref localConflicts, takeTheirs);
+            _modifications     = UnityFileData.MergeData(baseData._modifications, _modifications, theirs._modifications, report, takeTheirs);
+            _removedComponents = UnityFileData.MergeData(baseData._removedComponents, _removedComponents, theirs._removedComponents, report, takeTheirs);
             
-            if (conflictReportLines.Count > 0 || localConflicts)
-            {
-                conflictsFound = true;
-                conflictReport += "\nConflict on PrefabInstance: " + fileId.value + "\n";
-                foreach (var line in conflictReportLines)
-                {
-                    conflictReport += "  " + line + "\n";
-                }
-
-                conflictReport += modificationConflicts;
-            }
+            report.Pop();
         }
         
         
         public override string LogString()
         {
-            return ""; // @TODO
+            return "PrefabInstance " + fileId.value;
         }
     }
 }

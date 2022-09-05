@@ -121,8 +121,6 @@ namespace UnityMergeTool
                 mappingNode.Add(new YamlScalarNode(propertyName), handler(property.value));    
             }
         }
-        
-        
 
         static protected bool DiffProperty<T>(DiffableProperty<T> mine, DiffableProperty<T> theirs)
         {
@@ -130,34 +128,30 @@ namespace UnityMergeTool
             if (!mine.assigned && !theirs.assigned)
                 return false;
 
-            if (!mine.assigned)
+            mine.oldValue = theirs.value;
+            
+            if (!mine.assigned || !theirs.assigned)
             {
-                mine.value = theirs.value;
                 mine.valueChanged = true;
                 return true;
             }
 
-            if (!theirs.assigned)
-                return false;
-            
-            return mine.valueChanged = !mine.value.Equals(theirs.value);
+            mine.valueChanged = !mine.value.Equals(theirs.value);
+            return mine.valueChanged;
         }
         static protected bool DiffArrayProperty<T>(DiffableProperty<T[]> mine, DiffableProperty<T[]> theirs)
         {
             // Skip if neither are defined (nothing modified)
             if (!mine.assigned && !theirs.assigned)
                 return false;
-
-            if (!mine.assigned)
+            
+            mine.oldValue = theirs.value;
+            if (!mine.assigned || !theirs.assigned)
             {
-                mine.value = theirs.value;
                 mine.valueChanged = true;
                 return true;
             }
 
-            if (!theirs.assigned)
-                return false;
-            
             return mine.valueChanged = !Helpers.ArraysEqual(mine.value, theirs.value);
         }
 
@@ -169,13 +163,13 @@ namespace UnityMergeTool
             if (mine.Count != theirs.Count)
                 return true;
 
+            var different = false;
             for (int i = 0; i < mine.Count; ++i)
             {
-                if (mine[i].Diff(theirs[i]))
-                    return true;
+                different = different || mine[i].Diff(theirs[i]);
             }
 
-            return false;
+            return different;
         }
 
         static protected void MergeFileIdList(List<DiffableFileId> mine, List<DiffableFileId> theirs, List<string> conflictReportLines, bool takeTheirs = true)
@@ -224,13 +218,14 @@ namespace UnityMergeTool
             }
         }
         
-        protected void MergeYamlProperties(object thiersObj, List<string> conflictReportLines, bool takeTheirs = true)
+        protected void MergeYamlProperties(object thiersObj, MergeReport report, bool takeTheirs = true)
         {
             var theirs = thiersObj as BaseData;
             
             var toReplace = new List<KeyValuePair<string, DiffableProperty<YamlNode>>>();
             foreach (var pair in additionalData)
             {
+                var propertyName = pair.Key;
                 var thisNode = pair.Value;
                 var theirNode = theirs.additionalData.ContainsKey(pair.Key) ? theirs.additionalData[pair.Key] : null;
                 if (theirNode == null)
@@ -243,7 +238,8 @@ namespace UnityMergeTool
                     if (!DiffNodes(thisNode.value, theirNode.value))
                         continue;
 
-                    conflictReportLines.Add("Property: " + pair.Key + " Thiers: " + theirNode.value + " Mine: " + thisNode.value);
+                    report.AddConflictProperty(propertyName, thisNode, theirNode);
+                    //conflictReportLines.Add("Property: " + pair.Key + " Thiers: " + theirNode.value + " Mine: " + thisNode.value);
                     continue;
                 }
                     
@@ -260,7 +256,7 @@ namespace UnityMergeTool
         }
 
             
-        protected T MergeProperties<T>( string propertyName, DiffableProperty<T> mine, DiffableProperty<T> theirs, List<string> conflictReportLines, bool takeThiers = true)
+        protected T MergeProperties<T>( string propertyName, DiffableProperty<T> mine, DiffableProperty<T> theirs, MergeReport report, bool takeThiers = true)
         {
             // If there was a conflict between these properties, then report it and 
             if (mine.valueChanged && theirs.valueChanged)
@@ -269,18 +265,27 @@ namespace UnityMergeTool
                 if (mine.value.Equals(theirs.value)) {
                     return mine.value;
                 }
-                    
-                conflictReportLines.Add("Property: " + propertyName + " Thiers: " + theirs.value + " Mine: " + mine.value);
+                
+                report.AddConflictProperty(propertyName, mine, theirs);
+                //conflictReportLines.Add("Property: " + propertyName + " Thiers: " + theirs.value + " Mine: " + mine.value);
                 return takeThiers ? theirs.value : mine.value;
             }
 
             // If thiers was changed take it, otherwise always take mine
             if (theirs.valueChanged)
+            {
+                report.LogPropertyModification(propertyName, theirs, false);
                 return theirs.value;
-                
+            }
+
+            if (mine.valueChanged)
+            {
+                report.LogPropertyModification(propertyName, mine);
+            }
+            
             return mine.value;
         }
-        protected T[] MergePropArray<T>(string propertyName, DiffableProperty<T[]> mine, DiffableProperty<T[]> theirs, List<string> propConflict, bool takeThiers = true)
+        protected T[] MergePropArray<T>(string propertyName, DiffableProperty<T[]> mine, DiffableProperty<T[]> theirs, MergeReport report, bool takeThiers = true)
         {
             // If there was a conflict between these properties, then report it and 
             if (mine.valueChanged && theirs.valueChanged)
@@ -290,31 +295,40 @@ namespace UnityMergeTool
                     return mine.value;
                 }
 
-                var mineStr = "{ ";
-                var theirsStr = "{ ";
-                for (int i = 0; i < mine.value.Length; ++i)
-                {
-                    if (i > 0)
-                    {
-                        mineStr += ", ";
-                        theirsStr += ", ";
-                    }
-                    mineStr += mine.value[i];
-                    theirsStr += theirs.value[i];
-                }
-
-                mineStr += " }";
-                theirsStr += " }";
-                    
-                propConflict.Add("Property: " + propertyName + " Thiers: " + theirsStr + " Mine: " + mineStr);
+                // var mineStr = "{ ";
+                // var theirsStr = "{ ";
+                // for (int i = 0; i < mine.value.Length; ++i)
+                // {
+                //     if (i > 0)
+                //     {
+                //         mineStr += ", ";
+                //         theirsStr += ", ";
+                //     }
+                //     mineStr += mine.value[i];
+                //     theirsStr += theirs.value[i];
+                // }
+                //
+                // mineStr += " }";
+                // theirsStr += " }";
+                //propConflict.Add("Property: " + propertyName + " Thiers: " + theirsStr + " Mine: " + mineStr);
+                
+                report.AddConflictProperty(propertyName, mine, theirs);
 
                 return takeThiers ? theirs.value : mine.value;
             }
 
-            // If thiers was changed take it, otherwise always take mine
+            // If theirs was changed take it, otherwise always take mine
             if (theirs.valueChanged)
+            {
+                report.LogPropertyModification(propertyName, theirs, false);
                 return theirs.value;
-                
+            }
+
+            if (mine.valueChanged)
+            {
+                report.LogPropertyModification(propertyName, mine, false);
+            }
+
             return mine.value;
         }
         

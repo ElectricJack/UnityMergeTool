@@ -15,14 +15,7 @@ namespace UnityMergeTool
         public override string ScenePath => gameObjectRef != null? gameObjectRef.ScenePath : "";
         public override string LogString()
         {
-            var str = "MonoBehavior "+fileId.value+" - guid: " + scriptGuid.value + " enabled: " + enabled.value + " { ";
-            bool first = true;
-            foreach (var pair in additionalData)
-            {
-                str += (!first? ", " : "") + pair.Key + ": " + pair.Value.value;
-                first = false;
-            }
-            return str + " }";
+            return "MonoBehavior " + fileId.value + " guid: " + scriptGuid.value;
         }
         public MonoBehaviorData Load(YamlMappingNode mappingNode, long fileId, string typeName, string tag)
         {
@@ -87,30 +80,21 @@ namespace UnityMergeTool
         }
 
 
-        public override void Merge(object baseObj, object thiersObj, ref string conflictReport, ref bool conflictsFound,
-            bool takeTheirs = true)
+        public override void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
         {
-            var theirs = thiersObj as MonoBehaviorData;
-            var conflictReportLines = new List<string>();
+            var theirs = theirsObj as MonoBehaviorData;
             
-            MergeBase(thiersObj, conflictReportLines, takeTheirs);
+            report.Push(LogString(), ScenePath);
+            MergeBase(theirsObj, report, takeTheirs);
             
-            enabled.value         = MergeProperties(nameof(enabled),         enabled,         theirs.enabled,         conflictReportLines, takeTheirs);
-            editorHideFlags.value = MergeProperties(nameof(editorHideFlags), editorHideFlags, theirs.editorHideFlags, conflictReportLines, takeTheirs);
-            scriptId.value        = MergeProperties(nameof(scriptId),        scriptId,        theirs.scriptId,        conflictReportLines, takeTheirs);
-            scriptGuid.value      = MergeProperties(nameof(scriptGuid),      scriptGuid,      theirs.scriptGuid,      conflictReportLines, takeTheirs);
-            scriptType.value      = MergeProperties(nameof(scriptType),      scriptType,      theirs.scriptType,      conflictReportLines, takeTheirs);
+            enabled.value         = MergeProperties(nameof(enabled),         enabled,         theirs.enabled,         report, takeTheirs);
+            editorHideFlags.value = MergeProperties(nameof(editorHideFlags), editorHideFlags, theirs.editorHideFlags, report, takeTheirs);
+            scriptId.value        = MergeProperties(nameof(scriptId),        scriptId,        theirs.scriptId,        report, takeTheirs);
+            scriptGuid.value      = MergeProperties(nameof(scriptGuid),      scriptGuid,      theirs.scriptGuid,      report, takeTheirs);
+            scriptType.value      = MergeProperties(nameof(scriptType),      scriptType,      theirs.scriptType,      report, takeTheirs);
 
-            MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
-
-            if (conflictReportLines.Count > 0)
-            {
-                conflictsFound = true;
-                conflictReport += "\nConflict on MonoBehavior (guid: " + scriptGuid.value + ") at: " + ScenePath + "\n";
-                foreach (var line in conflictReportLines) {
-                    conflictReport += "  " + line + "\n";
-                }
-            }
+            MergeYamlProperties(theirsObj, report, takeTheirs);
+            report.Pop();
         }
         
     }

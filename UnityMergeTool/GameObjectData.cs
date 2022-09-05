@@ -101,50 +101,37 @@ namespace UnityMergeTool
             return WasModified;
         }
             
-        public override void Merge(object baseObj, object thiersObj, ref string conflictReport, ref bool conflictsFound,
-            bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, MergeReport report, bool takeTheirs = true)
         {
             var thiers = thiersObj as GameObjectData;
             var baseData = baseObj as GameObjectData;
-            var conflictReportLines = new List<string>();
 
-            MergeBase(thiersObj, conflictReportLines, takeTheirs);
+            report.Push(LogString(), ScenePath);
+            
+            MergeBase(thiersObj, report, takeTheirs);
             
             
             string componentConflictReport = "";
             bool componentConflictsFound = false;
-            UnityFileData.MergeData(baseData.componentIds, componentIds, thiers.componentIds, ref componentConflictReport, ref componentConflictsFound, takeTheirs);
-            if (componentConflictsFound)
-            {
-                conflictReportLines.Add(conflictReport);
-                conflictsFound = true;
-            }
-            
-            layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             conflictReportLines, takeTheirs);
-            name.value              = MergeProperties(nameof(name),              name,              thiers.name,              conflictReportLines, takeTheirs);
-            tagString.value         = MergeProperties(nameof(tagString),         tagString,         thiers.tagString,         conflictReportLines, takeTheirs);
-            iconId.Merge(thiers.iconId, conflictReportLines, takeTheirs);
-            navMeshLayer.value      = MergeProperties(nameof(navMeshLayer),      navMeshLayer,      thiers.navMeshLayer,      conflictReportLines, takeTheirs);
-            staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, conflictReportLines, takeTheirs);
-            isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          conflictReportLines, takeTheirs);
+            UnityFileData.MergeData(baseData.componentIds, componentIds, thiers.componentIds, report, takeTheirs);
 
-            MergeYamlProperties(thiersObj, conflictReportLines, takeTheirs);
             
-            if (conflictReportLines.Count > 0)
-            {
-                conflictsFound = true;
-                conflictReport += "\nConflict on GameObject: " + ScenePath + "\n";
-                foreach (var line in conflictReportLines)
-                {
-                    conflictReport += "  " + line + "\n";
-                }
-            }
+            layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             report, takeTheirs);
+            name.value              = MergeProperties(nameof(name),              name,              thiers.name,              report, takeTheirs);
+            tagString.value         = MergeProperties(nameof(tagString),         tagString,         thiers.tagString,         report, takeTheirs);
+            iconId.Merge(thiers.iconId, report, takeTheirs);
+            navMeshLayer.value      = MergeProperties(nameof(navMeshLayer),      navMeshLayer,      thiers.navMeshLayer,      report, takeTheirs);
+            staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, report, takeTheirs);
+            isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          report, takeTheirs);
+
+            MergeYamlProperties(thiersObj, report, takeTheirs);
+            
+            report.Pop();
         }
 
         public override string LogString()
         {
-            return "GameObject '" + name.value + "' (" + fileId.value + ") { isActive: " + isActive.value +
-                   " layer: " + layer.value + " }";
+            return "GameObject " + fileId.value;
         }
 
         public override string ScenePath
