@@ -59,11 +59,11 @@ namespace UnityMergeTool
                        propertyPath.value == theirs.propertyPath.value;
             }
 
-            public void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
+            public void Merge(object baseObj, object theirsObj, MergeReport report)
             {
                 var thiers = theirsObj as Modification;
-                value.value = MergeProperties(nameof(value), value,thiers.value, report, takeTheirs);
-                objectReference.Merge(thiers.objectReference, report, takeTheirs);
+                value.value = MergeProperties(nameof(value), value,thiers.value, report);
+                objectReference.Merge(thiers.objectReference, report);
             }
         }
        
@@ -182,20 +182,20 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public override void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
+        public override void Merge(object baseObj, object theirsObj, MergeReport report)
         {
             PrefabInstanceData baseData = baseObj as PrefabInstanceData;
             PrefabInstanceData theirs = theirsObj as PrefabInstanceData;
             
             report.Push(LogString(), ScenePath);
             
-            MergeBase(theirsObj, report, takeTheirs);
-            _transformParent.Merge(theirs._transformParent, report, takeTheirs);
+            MergeBase(theirsObj, report);
+            _transformParent.Merge(theirs._transformParent, report);
 
             var modificationConflicts = "";
             var localConflicts = false;
-            _modifications     = UnityFileData.MergeData(baseData._modifications, _modifications, theirs._modifications, report, takeTheirs);
-            _removedComponents = UnityFileData.MergeData(baseData._removedComponents, _removedComponents, theirs._removedComponents, report, takeTheirs);
+            _modifications     = UnityFileData.MergeData(baseData._modifications, _modifications, theirs._modifications, report);
+            _removedComponents = UnityFileData.MergeData(baseData._removedComponents, _removedComponents, theirs._removedComponents, report);
             
             report.Pop();
         }

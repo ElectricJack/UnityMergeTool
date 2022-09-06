@@ -218,18 +218,26 @@ namespace UnityMergeTool
             }
         }
         
-        protected void MergeYamlProperties(object thiersObj, MergeReport report, bool takeTheirs = true)
+        protected void MergeYamlProperties(object thiersObj, MergeReport report)
         {
             var theirs = thiersObj as BaseData;
             
             var toReplace = new List<KeyValuePair<string, DiffableProperty<YamlNode>>>();
+            var toRemove = new List<string>();
+            
             foreach (var pair in additionalData)
             {
                 var propertyName = pair.Key;
                 var thisNode = pair.Value;
                 var theirNode = theirs.additionalData.ContainsKey(pair.Key) ? theirs.additionalData[pair.Key] : null;
                 if (theirNode == null)
+                {
+                    var takeTheirs = report.PropertyChange(propertyName, thisNode, theirNode);
+                    if (takeTheirs)
+                        toRemove.Add(pair.Key);
+                    
                     continue;
+                }
 
                 if (thisNode.valueChanged && theirNode.valueChanged)
                 {
@@ -238,25 +246,37 @@ namespace UnityMergeTool
                     if (!DiffNodes(thisNode.value, theirNode.value))
                         continue;
 
-                    report.AddConflictProperty(propertyName, thisNode, theirNode);
-                    //conflictReportLines.Add("Property: " + pair.Key + " Thiers: " + theirNode.value + " Mine: " + thisNode.value);
+                    var takeTheirs = report.PropertyChange(propertyName, thisNode, theirNode);
+                    if (takeTheirs)
+                        toReplace.Add(new KeyValuePair<string, DiffableProperty<YamlNode>>(pair.Key, theirNode));
+                    
                     continue;
                 }
-                    
-                // Save off any merged in changes
-                if (theirNode.valueChanged)
-                    toReplace.Add(new KeyValuePair<string, DiffableProperty<YamlNode>>(pair.Key, theirNode));
+
+                
+                if (thisNode.valueChanged || theirNode.valueChanged)
+                {
+                    var takeTheirs = report.PropertyChange(propertyName, thisNode, theirNode);
+                    if (takeTheirs)
+                        toReplace.Add(new KeyValuePair<string, DiffableProperty<YamlNode>>(pair.Key, theirNode));
+                }
             }
 
-            // Apply merged in changes
+            // Apply merged in changes from theirs
             foreach (var pair in toReplace)
             {
                 additionalData[pair.Key] = pair.Value;
             }
+            
+            // Remove data that should be removed
+            foreach (var key in toRemove)
+            {
+                additionalData.Remove(key);
+            }
         }
 
             
-        protected T MergeProperties<T>( string propertyName, DiffableProperty<T> mine, DiffableProperty<T> theirs, MergeReport report, bool takeThiers = true)
+        protected T MergeProperties<T>( string propertyName, DiffableProperty<T> mine, DiffableProperty<T> theirs, MergeReport report)
         {
             // If there was a conflict between these properties, then report it and 
             if (mine.valueChanged && theirs.valueChanged)
@@ -266,26 +286,21 @@ namespace UnityMergeTool
                     return mine.value;
                 }
                 
-                report.AddConflictProperty(propertyName, mine, theirs);
-                //conflictReportLines.Add("Property: " + propertyName + " Thiers: " + theirs.value + " Mine: " + mine.value);
+                var takeThiers = report.PropertyChange(propertyName, mine, theirs);
                 return takeThiers ? theirs.value : mine.value;
             }
 
-            // If thiers was changed take it, otherwise always take mine
-            if (theirs.valueChanged)
+            // Log either property change
+            if (theirs.valueChanged || mine.valueChanged)
             {
-                report.LogPropertyModification(propertyName, theirs, false);
-                return theirs.value;
-            }
-
-            if (mine.valueChanged)
-            {
-                report.LogPropertyModification(propertyName, mine);
+                var takeTheirs = report.PropertyChange(propertyName, mine, theirs);
+                if (takeTheirs)
+                    return theirs.value;
             }
             
             return mine.value;
         }
-        protected T[] MergePropArray<T>(string propertyName, DiffableProperty<T[]> mine, DiffableProperty<T[]> theirs, MergeReport report, bool takeThiers = true)
+        protected T[] MergePropArray<T>(string propertyName, DiffableProperty<T[]> mine, DiffableProperty<T[]> theirs, MergeReport report)
         {
             // If there was a conflict between these properties, then report it and 
             if (mine.valueChanged && theirs.valueChanged)
@@ -295,44 +310,20 @@ namespace UnityMergeTool
                     return mine.value;
                 }
 
-                // var mineStr = "{ ";
-                // var theirsStr = "{ ";
-                // for (int i = 0; i < mine.value.Length; ++i)
-                // {
-                //     if (i > 0)
-                //     {
-                //         mineStr += ", ";
-                //         theirsStr += ", ";
-                //     }
-                //     mineStr += mine.value[i];
-                //     theirsStr += theirs.value[i];
-                // }
-                //
-                // mineStr += " }";
-                // theirsStr += " }";
-                //propConflict.Add("Property: " + propertyName + " Thiers: " + theirsStr + " Mine: " + mineStr);
-                
-                report.AddConflictProperty(propertyName, mine, theirs);
-
+                var takeThiers = report.PropertyChange(propertyName, mine, theirs);
                 return takeThiers ? theirs.value : mine.value;
             }
-
-            // If theirs was changed take it, otherwise always take mine
-            if (theirs.valueChanged)
+            
+            // Log either property change
+            if (theirs.valueChanged || mine.valueChanged)
             {
-                report.LogPropertyModification(propertyName, theirs, false);
-                return theirs.value;
-            }
-
-            if (mine.valueChanged)
-            {
-                report.LogPropertyModification(propertyName, mine, false);
+                var takeTheirs = report.PropertyChange(propertyName, mine, theirs);
+                if (takeTheirs)
+                    return theirs.value;
             }
 
             return mine.value;
         }
-        
-        
 
         private bool DiffNodes(YamlNode prevNode, YamlNode thisNode)
         {

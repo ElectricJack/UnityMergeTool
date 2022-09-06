@@ -38,11 +38,10 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public override void Merge(object baseObj, object thiersObj, MergeReport report,
-            bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, MergeReport report)
         {
             var conflictReportLines = new List<string>();
-            MergeYamlProperties(thiersObj, report, takeTheirs);
+            MergeYamlProperties(thiersObj, report);
         }
     }
 }

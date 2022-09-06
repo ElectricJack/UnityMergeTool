@@ -63,27 +63,17 @@ namespace UnityMergeTool
             return WasModified;
         }
 
-        public void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
+        public void Merge(object baseObj, object theirsObj, MergeReport report)
         {
             DiffableFileId theirs = theirsObj as DiffableFileId;
             //var conflictReportLines = new List<string>();
-            Merge(theirs, report, takeTheirs);
-
-            // if (conflictReportLines.Count > 0)
-            // {
-            //     conflictsFound = true;
-            //     conflictReport += "\nConflict on FileId: " + fileId.value + " - " + guid.value +"\n";
-            //     foreach (var line in conflictReportLines)
-            //     {
-            //         conflictReport += "  " + line + "\n";
-            //     }
-            // }
+            Merge(theirs, report);
         }
-        public void Merge(DiffableFileId theirs, MergeReport report, bool takeTheirs = true)
+        public void Merge(DiffableFileId theirs, MergeReport report)
         {
-            MergeProperties(propertyName + ".fileID", fileId, theirs.fileId,  report, takeTheirs);
-            MergeProperties(propertyName + ".guid", guid, theirs.guid,  report, takeTheirs);
-            MergeProperties(propertyName + ".type", type, theirs.type,  report, takeTheirs);
+            MergeProperties(propertyName + ".fileID", fileId, theirs.fileId,  report);
+            MergeProperties(propertyName + ".guid",   guid,   theirs.guid,    report);
+            MergeProperties(propertyName + ".type",   type,   theirs.type,    report);
         }
         
         public bool Matches(DiffableFileId other)

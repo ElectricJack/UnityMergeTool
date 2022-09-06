@@ -80,20 +80,20 @@ namespace UnityMergeTool
         }
 
 
-        public override void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true)
+        public override void Merge(object baseObj, object theirsObj, MergeReport report)
         {
             var theirs = theirsObj as MonoBehaviorData;
             
             report.Push(LogString(), ScenePath);
-            MergeBase(theirsObj, report, takeTheirs);
+            MergeBase(theirsObj, report);
             
-            enabled.value         = MergeProperties(nameof(enabled),         enabled,         theirs.enabled,         report, takeTheirs);
-            editorHideFlags.value = MergeProperties(nameof(editorHideFlags), editorHideFlags, theirs.editorHideFlags, report, takeTheirs);
-            scriptId.value        = MergeProperties(nameof(scriptId),        scriptId,        theirs.scriptId,        report, takeTheirs);
-            scriptGuid.value      = MergeProperties(nameof(scriptGuid),      scriptGuid,      theirs.scriptGuid,      report, takeTheirs);
-            scriptType.value      = MergeProperties(nameof(scriptType),      scriptType,      theirs.scriptType,      report, takeTheirs);
+            enabled.value         = MergeProperties(nameof(enabled),         enabled,         theirs.enabled,         report);
+            editorHideFlags.value = MergeProperties(nameof(editorHideFlags), editorHideFlags, theirs.editorHideFlags, report);
+            scriptId.value        = MergeProperties(nameof(scriptId),        scriptId,        theirs.scriptId,        report);
+            scriptGuid.value      = MergeProperties(nameof(scriptGuid),      scriptGuid,      theirs.scriptGuid,      report);
+            scriptType.value      = MergeProperties(nameof(scriptType),      scriptType,      theirs.scriptType,      report);
 
-            MergeYamlProperties(theirsObj, report, takeTheirs);
+            MergeYamlProperties(theirsObj, report);
             report.Pop();
         }
         

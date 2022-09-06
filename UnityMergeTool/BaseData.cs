@@ -13,7 +13,7 @@ namespace UnityMergeTool
 
         string LogString();
         bool Matches(IMergable other);
-        void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true);
+        void Merge(object baseObj, object theirsObj, MergeReport report);
     }
     abstract class BaseData : PropertyMerge, IMergable
     {
@@ -43,7 +43,7 @@ namespace UnityMergeTool
 
         public abstract string ScenePath { get; }
         public abstract bool Diff(object previous);
-        public abstract void Merge(object baseObj, object theirsObj, MergeReport report, bool takeTheirs = true);
+        public abstract void Merge(object baseObj, object theirsObj, MergeReport report);
 
         public abstract void Save(YamlMappingNode node);
         public abstract string LogString();
@@ -93,16 +93,16 @@ namespace UnityMergeTool
             return WasModified;
         }
         
-        protected void MergeBase(object thiersObj, MergeReport report, bool takeTheirs = true)
+        protected void MergeBase(object thiersObj, MergeReport report)
         {
             var thiers = thiersObj as BaseData;
-            fileId.value                      = MergeProperties(nameof(fileId),                     fileId,                      thiers.fileId,                      report, takeTheirs);
-            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),            objectHideFlags,             thiers.objectHideFlags,             report, takeTheirs);
+            fileId.value                      = MergeProperties(nameof(fileId),           fileId,           thiers.fileId,           report);
+            objectHideFlags.value             = MergeProperties(nameof(objectHideFlags),  objectHideFlags,  thiers.objectHideFlags,  report);
             
-            gameObjectId.Merge               (thiers.gameObjectId, report, takeTheirs);
-            correspondingSourceObjectId.Merge(thiers.correspondingSourceObjectId, report, takeTheirs);
-            prefabInstanceId.Merge           (thiers.prefabInstanceId, report, takeTheirs);
-            prefabAssetId.Merge              (thiers.prefabAssetId, report, takeTheirs);
+            gameObjectId.Merge               (thiers.gameObjectId,                report);
+            correspondingSourceObjectId.Merge(thiers.correspondingSourceObjectId, report);
+            prefabInstanceId.Merge           (thiers.prefabInstanceId,            report);
+            prefabAssetId.Merge              (thiers.prefabAssetId,               report);
         }
     }
     

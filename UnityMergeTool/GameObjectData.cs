@@ -101,30 +101,29 @@ namespace UnityMergeTool
             return WasModified;
         }
             
-        public override void Merge(object baseObj, object thiersObj, MergeReport report, bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, MergeReport report)
         {
             var thiers = thiersObj as GameObjectData;
             var baseData = baseObj as GameObjectData;
 
             report.Push(LogString(), ScenePath);
             
-            MergeBase(thiersObj, report, takeTheirs);
-            
-            
+            MergeBase(thiersObj, report);
+
             string componentConflictReport = "";
             bool componentConflictsFound = false;
-            UnityFileData.MergeData(baseData.componentIds, componentIds, thiers.componentIds, report, takeTheirs);
+            UnityFileData.MergeData(baseData.componentIds, componentIds, thiers.componentIds, report);
 
             
-            layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             report, takeTheirs);
-            name.value              = MergeProperties(nameof(name),              name,              thiers.name,              report, takeTheirs);
-            tagString.value         = MergeProperties(nameof(tagString),         tagString,         thiers.tagString,         report, takeTheirs);
-            iconId.Merge(thiers.iconId, report, takeTheirs);
-            navMeshLayer.value      = MergeProperties(nameof(navMeshLayer),      navMeshLayer,      thiers.navMeshLayer,      report, takeTheirs);
-            staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, report, takeTheirs);
-            isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          report, takeTheirs);
+            layer.value             = MergeProperties(nameof(layer),             layer,             thiers.layer,             report);
+            name.value              = MergeProperties(nameof(name),              name,              thiers.name,              report);
+            tagString.value         = MergeProperties(nameof(tagString),         tagString,         thiers.tagString,         report);
+            iconId.Merge(thiers.iconId, report);
+            navMeshLayer.value      = MergeProperties(nameof(navMeshLayer),      navMeshLayer,      thiers.navMeshLayer,      report);
+            staticEditorFlags.value = MergeProperties(nameof(staticEditorFlags), staticEditorFlags, thiers.staticEditorFlags, report);
+            isActive.value          = MergeProperties(nameof(isActive),          isActive,          thiers.isActive,          report);
 
-            MergeYamlProperties(thiersObj, report, takeTheirs);
+            MergeYamlProperties(thiersObj, report);
             
             report.Pop();
         }

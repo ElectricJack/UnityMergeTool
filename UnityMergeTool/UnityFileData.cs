@@ -83,10 +83,8 @@ namespace UnityMergeTool
             return DiffData(baseFile._allDatasById, _allDatas) || foundDifferences;
         }
 
-        public UnityFileData Merge(UnityFileData baseFile, UnityFileData thierFile, out MergeReport report, bool takeTheirs = true)
+        public UnityFileData Merge(UnityFileData baseFile, UnityFileData thierFile, MergeReport report)
         {
-            report = new MergeReport();
-            
             bool myDiff    = Diff(baseFile);
             bool thierDiff = thierFile.Diff(baseFile);
 
@@ -97,7 +95,7 @@ namespace UnityMergeTool
             if (!myDiff) return thierFile;
 
             report.Begin();
-            _allDatas = MergeData(baseFile._allDatas, _allDatas, thierFile._allDatas, report, takeTheirs);
+            _allDatas = MergeData(baseFile._allDatas, _allDatas, thierFile._allDatas, report);
             RebuildLinks();
             report.End();
 
@@ -166,12 +164,14 @@ namespace UnityMergeTool
 
             return foundDifferences;
         }
-        public static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, MergeReport report, bool takeTheirs = true) where T : IMergable
+        public static List<T> MergeData<T>(List<T> baseDatas, List<T> myData, List<T> thierData, MergeReport report) where T : IMergable
         {
             // First determine what I added and removed and what they added and removed.
             FindAddedAndRemoved<T>(baseDatas, myData,    out List<T> myAdded,    out List<T> myRemoved );
             FindAddedAndRemoved<T>(baseDatas, thierData, out List<T> thierAdded, out List<T> thierRemoved );
 
+            List<T> toKeep = new List<T>();
+            
             // Check if the they modified anything that we removed or vice versa, if so we need to report it and KEEP the data that was removed (easier to remove it again later then to add it back)
             foreach (var myRemovedData in myRemoved)
             {
@@ -180,7 +180,8 @@ namespace UnityMergeTool
                 if (foundRemoved is {WasModified: true})
                 {
                     report.Push(foundRemoved.LogString(), foundRemoved.ScenePath);
-                    report.AddConflict(foundRemoved,$"{foundRemoved.LogString()} was removed in mine, but modified in theirs.");
+                    var takeTheirs = report.MergableConflict(foundRemoved,$"Element was removed in mine, but modified in theirs.");
+                    if (takeTheirs) toKeep.Add(foundRemoved);
                     report.Pop();
                 }
             }
@@ -192,7 +193,8 @@ namespace UnityMergeTool
                 if (foundRemoved is {WasModified: true})
                 {
                     report.Push(foundRemoved.LogString(), foundRemoved.ScenePath);
-                    report.AddConflict(foundRemoved,$"{foundRemoved.LogString()} was removed in theirs, but modified in mine.");
+                    var takeTheirs = report.MergableConflict(foundRemoved,$"Element was removed in theirs, but modified in mine.");
+                    if (!takeTheirs) toKeep.Add(foundRemoved);
                     report.Pop();
                 }
             }
@@ -223,11 +225,15 @@ namespace UnityMergeTool
                 var foundInMine   = myData.First(item => item.Matches(sharedData));
                 var foundInTheirs = thierData.First(item => item.Matches(sharedData));
 
-                foundInMine.Merge(foundInBase, foundInTheirs, report, takeTheirs);
+                foundInMine.Merge(foundInBase, foundInTheirs, report);
             }
             
             // Add anything new from theirs to mine, there will be no conflicts here
             myData.AddRange(thierAdded);
+            
+            // Add anything we decided to keep from removed
+            myData.AddRange(toKeep);
+            
             return myData;
         }
         private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : IMergable

@@ -101,27 +101,27 @@ namespace UnityMergeTool
             
             return WasModified;
         }
-        public override void Merge(object baseObj, object thiersObj, MergeReport report, bool takeTheirs = true)
+        public override void Merge(object baseObj, object thiersObj, MergeReport report)
         {
             var thiers = thiersObj as TransformData;
             
             report.Push(LogString(), ScenePath);
                 
-            MergeBase(thiersObj, report, takeTheirs);
+            MergeBase(thiersObj, report);
             
-            localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        report, takeTheirs);
-            localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        report, takeTheirs);
-            localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           report, takeTheirs);
+            localRotation.value         = MergePropArray (nameof(localRotation),        localRotation,        thiers.localRotation,        report);
+            localPosition.value         = MergePropArray (nameof(localPosition),        localPosition,        thiers.localPosition,        report);
+            localScale.value            = MergePropArray (nameof(localScale),           localScale,           thiers.localScale,           report);
             
             // Children ID's in this case are duplicate information, we will rebuild these after the merge is complete from
             //  all transforms known parents
             childrenIds.value = null;
 
-            parentId.Merge(thiers.parentId, report, takeTheirs);
-            rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,            report, takeTheirs);
-            localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, report, takeTheirs);
+            parentId.Merge(thiers.parentId, report);
+            rootOrder.value             = MergeProperties(nameof(rootOrder),            rootOrder,            thiers.rootOrder,            report);
+            localEulerAnglesHint.value  = MergePropArray (nameof(localEulerAnglesHint), localEulerAnglesHint, thiers.localEulerAnglesHint, report);
 
-            MergeYamlProperties(thiersObj, report, takeTheirs);
+            MergeYamlProperties(thiersObj, report);
             
             report.Pop();
         }

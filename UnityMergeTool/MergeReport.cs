@@ -1,38 +1,43 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace UnityMergeTool
 {
     public class MergeReport
     {
-        public bool  HasConflicts => _hasConflicts;
-        private bool _hasConflicts = false;
+        
 
+        public void Begin() { _activeItem = _root; }
+        public void End() { }
 
-
-        public void Begin()
-        {
-            Push("Root", "/");
-        }
-        public void End()
-        {
-            Pop();
-        }
-
+        
         class ReportNode
         {
             public string                         name;
-            public string?                        type = null;
+            //public string?                        type = null;
             public Dictionary<string, ReportNode> children = new Dictionary<string, ReportNode>();
-            public List<string>                   report = new List<string>();
+            public List<ChangeLog>                report = new List<ChangeLog>();
         }
 
-        private ReportNode       _root = new ReportNode();
-        private List<ReportNode> _stack = new List<ReportNode>();
-        private ReportNode       _activeItem = null;
+        class ChangeLog
+        {
+            public string ident;
+            public string message;
+            public bool   takeTheirs;
+            public bool   conflict;
+        }
+
+        private ReportNode       _root        = new ReportNode();
+        private List<ReportNode> _stack       = new List<ReportNode>();
+        private ReportNode       _activeItem  = null;
+        private bool             _applyReport = false;
 
         public override string ToString()
         {
@@ -40,12 +45,129 @@ namespace UnityMergeTool
             LogReportRecursive(_root, sb);
             return sb.ToString();
         }
+
+        public void SaveReport(string reportFile)
+        {
+            File.WriteAllText(reportFile, ToString());
+        }
+        public void LoadReport(string reportFile)
+        {
+            var matchPath = new Regex("([\\s]+)\\/(.*)", RegexOptions.Singleline | RegexOptions.Compiled);
+            var matchPathWithOverride = new Regex("([\\s]+)\\/(.*)\\[OVERRIDE: (MINE|THEIRS)\\]", RegexOptions.Singleline | RegexOptions.Compiled);
+            var matchLog  = new Regex("([\\s]+)((\\[THEIRS\\] |\\[MINE\\] |\\[CONFLICT\\] )+)'(.+)'(.*)", RegexOptions.Singleline | RegexOptions.Compiled);
+            
+            _stack.Add(_root);
+            _activeItem = _root;
+
+            bool overrideWithTheirs = true;
+            int  overrideBelowIndent = -1;
+            
+            var lines = File.ReadAllText(reportFile).Split("\n");
+            for (int i = 1; i < lines.Length; ++i)
+            {
+                var line = lines[i];
+                Match lineMatch;
+                var lineMatchWithOverride = matchPathWithOverride.Match(line);
+                if (lineMatchWithOverride.Success)
+                {
+                    var indentLevel  = lineMatchWithOverride.Groups[1].Value.Length / 4;
+                    overrideWithTheirs  = lineMatchWithOverride.Groups[3].Value.Equals("THEIRS");
+                    overrideBelowIndent = indentLevel;
+                    lineMatch = lineMatchWithOverride;
+                }
+                else
+                {
+                    lineMatch = matchPath.Match(line);
+                }
+                
+                if (lineMatch.Success)
+                {
+                    var indentLevel = lineMatch.Groups[1].Value.Length / 4;
+                    if (indentLevel < _stack.Count)
+                    {
+                        while (indentLevel < _stack.Count)
+                            _stack.RemoveAt(_stack.Count-1);
+
+                        // Clear override if we go below where it was set
+                        if (_stack.Count <= overrideBelowIndent) {
+                            overrideBelowIndent = -1;
+                        }
+                        
+                        _activeItem = _stack[_stack.Count-1];
+                    }
+                    if (indentLevel == _stack.Count)
+                    {
+                        var node = new ReportNode();
+                        node.name = lineMatch.Groups[2].Value.Trim();
+                        _activeItem.children.Add(node.name, node);
+                        _activeItem = node;
+                        _stack.Add(node);
+                    }
+
+                    continue;
+                }
+                
+                var logMatch = matchLog.Match(line);
+                if (logMatch.Success)
+                {
+                    var indentLevel = logMatch.Groups[1].Value.Length / 4;
+                    if (indentLevel != _stack.Count)
+                    {
+                        Console.WriteLine($"ERROR - Invalid indentation in report on line {i}");
+                        continue;
+                    }
+
+                    var flags = logMatch.Groups[2].Value;
+                    var conflict = flags.Contains("CONFLICT");
+                    var takeTheirs = flags.Contains("THEIRS");
+
+                    if (overrideBelowIndent != -1 && indentLevel > overrideBelowIndent)
+                    {
+                        takeTheirs = overrideWithTheirs;
+                        conflict = false;
+                    }
+                    
+                    var ident = logMatch.Groups[4].Value;
+                    var message = logMatch.Groups[5].Value.Trim();
+                        
+                    _activeItem.report.Add(new ChangeLog()
+                    {
+                        ident      = ident,
+                        conflict   = conflict,
+                        takeTheirs = takeTheirs,
+                        message    = message
+                    });
+                }
+            }
+            
+            _stack.Clear();
+            _stack.Add(_root);
+            _activeItem = _root;
+            _applyReport = true;
+        }
         
         public void Push(string type, string scenePath)
         {
-            var pathItems = scenePath.Split("/");
-            _stack.Add(AddNodesRecursive(_root, pathItems));
-            _activeItem = _stack[_stack.Count - 1];
+            var pathItems = scenePath.Split("/").Skip(1).ToArray();
+            if (_applyReport)
+            {
+                _activeItem = _root;
+                foreach (var item in pathItems) {
+                    // If we can't locate the full path, it's not in the saved report and we need to just
+                    //  use default behavior when merging
+                    if (!_activeItem.children.ContainsKey(item))
+                    {
+                        _activeItem = null;
+                        break;
+                    }
+                    _activeItem = _activeItem.children[item];
+                }
+            }
+            else
+            {
+                _activeItem = AddNodesRecursive(_root, pathItems);
+            }
+            _stack.Add(_activeItem);
         }
 
         private bool LogReportRecursive(ReportNode node, StringBuilder sb, string indent = "")
@@ -63,13 +185,12 @@ namespace UnityMergeTool
             if (hasReport)
             {
                 sb.Append($"{indent}/{node.name}\n");
-                foreach (var line in node.report) {
-                    sb.Append($"{indent}    {line}\n");
+                foreach (var changeLog in node.report) {
+                    sb.Append($"{indent}    {(changeLog.conflict? "[CONFLICT] " : "")}[{(changeLog.takeTheirs? "THEIRS" : "MINE")}] '{changeLog.ident}' {changeLog.message}\n");
                 }
                 
                 sb.Append(childReport.ToString());    
             }
-            
 
             return hasReport;
         }
@@ -100,26 +221,173 @@ namespace UnityMergeTool
                 _activeItem = null;
         }
         
-        public void AddConflict(IMergable conflicted, string message)
+        public bool MergableConflict(IMergable conflicted, string message)
         {
-            _hasConflicts = true;
-            //Console.WriteLine(conflicted.ScenePath + $" Conflicts! {message}");
-            _activeItem.report.Add($"CONFLICT! {message}");
+            if (_applyReport)
+            {
+                if (_activeItem != null)
+                {
+                    var match = _activeItem.report.FirstOrDefault(item => item.ident.Equals(conflicted.LogString()));
+                    if (match != null) {
+                        return match.takeTheirs;
+                    }
+                }
+                // Default to take theirs if we don't have this in the report
+                return true;
+            }
+
+            LogMergableConflict(conflicted, message);
+            return false;
+        }
+        public bool PropertyChange<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> thiers)
+        {
+            if (_applyReport)
+            {
+                if (_activeItem != null)
+                {
+                    var match = _activeItem.report.FirstOrDefault(item => item.ident.Equals(propertyName));
+                    if (match != null)
+                    {
+                        return match.takeTheirs;
+                    }
+                }
+                
+                if (mine   == null) { return true; }
+                if (thiers == null) { return false; }
+
+                if (mine.valueChanged && thiers.valueChanged)
+                {
+                    return true; // Take theirs on unresolved conflict 
+                }
+                
+                if (mine.valueChanged && mine.oldValue != null)
+                {
+                    return false; // Default to theirs
+                }
+
+                if (thiers.valueChanged && thiers.oldValue != null)
+                {
+                    return true; // Default to ours
+                }
+
+                return false;
+            }
+
+            LogPropertyChange(propertyName, mine, thiers);
+            return false;
         }
 
-        public void AddConflictProperty<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> theirs)
+        private void LogMergableConflict(IMergable conflicted, string message)
         {
-            _hasConflicts = true;
-            //Console.WriteLine($"{parent} property {propertyName} conflicts! {mine.value} {mine.oldValue} {theirs.value} {theirs.oldValue}");
-            _activeItem.report.Add($"Property {propertyName} conflicts! {mine.value} {mine.oldValue} {theirs.value} {theirs.oldValue}");
+            _activeItem.report.Add(new ChangeLog()
+            {
+                ident      = conflicted.LogString(),
+                conflict   = true,
+                message    = message,
+                takeTheirs = true // Default to theirs?
+            });
+        }
+        private void LogPropertyChange<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> thiers)
+        {
+            if (mine == null)
+            {
+                if (thiers.valueChanged)
+                {
+                    LogPropertyConflict(propertyName, mine, thiers);
+                    return; 
+                }
+                    
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident       = propertyName,
+                    conflict   = false,
+                    message    = $"Property added in theirs - {thiers.value}",
+                    takeTheirs = true // Default to theirs (mine doesn't exist)
+                });
+                
+                return;
+            }
+
+            if (thiers == null)
+            {
+                if (mine.valueChanged)
+                {
+                    LogPropertyConflict(propertyName, mine, thiers);
+                    return;
+                }
+                
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident       = propertyName,
+                    conflict   = false,
+                    message    = $"Property added in mine - {mine.value}",
+                    takeTheirs = false // Default to ours (theirs doesn't exist)
+                });
+                
+                return;
+            }
+
+            if (mine.valueChanged && thiers.valueChanged)
+            {
+                LogPropertyConflict(propertyName, mine, thiers);
+                return; 
+            }
+            
+            if (mine.valueChanged && mine.oldValue != null)
+            {
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident       = propertyName,
+                    conflict   = false,
+                    message    = $"Property modified in mine - new: {mine.value} old: {mine.oldValue}",
+                    takeTheirs = false // Default to ours
+                });
+            }
+
+            if (thiers.valueChanged && thiers.oldValue != null)
+            {
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident       = propertyName,
+                    conflict   = false,
+                    message    = $"Property modified in theirs '{propertyName}' - new: {thiers.value} old: {thiers.oldValue}",
+                    takeTheirs = true // Default to theirs?
+                });
+            }
         }
 
-        public void LogPropertyModification<T>(string propertyName, DiffableProperty<T> property, bool mine = true)
+        private void LogPropertyConflict<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> theirs)
         {
-            if (mine) //Console.WriteLine($"{parent} property {propertyName} modified in mine - new: {property.value} old: {property.oldValue}");
-                _activeItem.report.Add($"Property {propertyName} modified in mine - new: {property.value} old: {property.oldValue}");
-            else      //Console.WriteLine($"{parent} property {propertyName} modified in theirs - new: {property.value} old: {property.oldValue}");
-                _activeItem.report.Add($"Property {propertyName} modified in theirs - new: {property.value} old: {property.oldValue}");
+            if (mine != null && theirs != null)
+            {
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident       = propertyName,
+                    conflict   = true,
+                    message    = $"Property conflict - mine [ new: {mine.value} old: {mine.oldValue} ] thiers [ new: {theirs.value} old: {theirs.oldValue} ]",
+                    takeTheirs = true // Default to theirs?
+                });
+            }
+            else if (mine == null && theirs.oldValue != null)
+            {
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident       = propertyName,
+                    conflict   = true,
+                    message    = $"Property conflict - mine [ deleted ] thiers [ new: {theirs.value} old: {theirs.oldValue} ]",
+                    takeTheirs = true // Default to theirs?
+                });
+            }
+            else if (theirs == null && mine.oldValue != null)
+            {
+                _activeItem.report.Add(new ChangeLog()
+                {
+                    ident = propertyName,
+                    conflict = true,
+                    message = $"Property conflict - mine [ new: {mine.value} old: {mine.oldValue} ] theirs [ deleted ]",
+                    takeTheirs = false // Default to theirs?
+                });
+            }
         }
 
 
