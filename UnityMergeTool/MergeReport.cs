@@ -148,11 +148,12 @@ namespace UnityMergeTool
         
         public void Push(string type, string scenePath)
         {
-            var pathItems = scenePath.Split("/").Skip(1).ToArray();
+            var pathItems = scenePath.Split("/").Where(item => !string.IsNullOrEmpty(item)).ToArray();
             if (_applyReport)
             {
                 _activeItem = _root;
-                foreach (var item in pathItems) {
+                foreach (var item in pathItems)
+                {
                     // If we can't locate the full path, it's not in the saved report and we need to just
                     //  use default behavior when merging
                     if (!_activeItem.children.ContainsKey(item))
@@ -220,56 +221,37 @@ namespace UnityMergeTool
             else
                 _activeItem = null;
         }
-        
-        public bool MergableConflict(IMergable conflicted, string message)
+
+        public bool Changed(IMergable modified, bool conflict, string message, bool takeTheirs)
         {
             if (_applyReport)
             {
                 if (_activeItem != null)
                 {
-                    var match = _activeItem.report.FirstOrDefault(item => item.ident.Equals(conflicted.LogString()));
+                    var match = _activeItem.report.FirstOrDefault(item => item.ident.Equals(modified.LogString()));
                     if (match != null) {
                         return match.takeTheirs;
                     }
                 }
                 // Default to take theirs if we don't have this in the report
                 return true;
-            }
+            } 
 
-            LogMergableConflict(conflicted, message);
-            return false;
-        }
-        
-        public bool Changed(IMergable modified, string message, bool takeTheirs)
-        {
-            // if (_applyReport)
-            // {
-            //     if (_activeItem != null)
-            //     {
-            //         var match = _activeItem.report.FirstOrDefault(item => item.ident.Equals(modified.LogString()));
-            //         if (match != null) {
-            //             return match.takeTheirs;
-            //         }
-            //     }
-            //     // Default to take theirs if we don't have this in the report
-            //     return true;
-            // }
-
-            LogChange(modified, message, takeTheirs);
+            LogChange(modified, conflict, message, takeTheirs);
             return false;
         }
 
-        private void LogChange(IMergable modified, string message, bool takeTheirs)
+        private void LogChange(IMergable modified, bool conflict, string message, bool takeTheirs)
         {
             _activeItem.report.Add(new ChangeLog()
             {
-                ident       = modified.LogString(),
-                conflict   = false,
+                ident      = modified.LogString(),
+                conflict   = conflict,
                 message    = message,
                 takeTheirs = takeTheirs
             });
         }
-        
+
         public bool PropertyChange<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> thiers)
         {
             if (_applyReport)
@@ -302,17 +284,7 @@ namespace UnityMergeTool
             LogPropertyChange(propertyName, mine, thiers);
             return false;
         }
-
-        private void LogMergableConflict(IMergable conflicted, string message)
-        {
-            _activeItem.report.Add(new ChangeLog()
-            {
-                ident      = conflicted.LogString(),
-                conflict   = true,
-                message    = message,
-                takeTheirs = true // Default to theirs?
-            });
-        }
+        
         private void LogPropertyChange<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> thiers)
         {
             if (mine == null)

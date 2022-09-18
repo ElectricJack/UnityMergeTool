@@ -180,7 +180,7 @@ namespace UnityMergeTool
                 if (foundRemoved is {WasModified: true})
                 {
                     report.Push(foundRemoved.LogString(), foundRemoved.ScenePath);
-                    var takeTheirs = report.MergableConflict(foundRemoved,$"Element was removed in mine, but modified in theirs.");
+                    var takeTheirs = report.Changed(foundRemoved, true,$"Element was removed in mine, but modified in theirs.", true);
                     if (takeTheirs) toKeep.Add(foundRemoved);
                     report.Pop();
                 }
@@ -193,7 +193,7 @@ namespace UnityMergeTool
                 if (foundRemoved is {WasModified: true})
                 {
                     report.Push(foundRemoved.LogString(), foundRemoved.ScenePath);
-                    var takeTheirs = report.MergableConflict(foundRemoved,$"Element was removed in theirs, but modified in mine.");
+                    var takeTheirs = report.Changed(foundRemoved, true, $"Element was removed in theirs, but modified in mine.", true);
                     if (!takeTheirs) toKeep.Add(foundRemoved);
                     report.Pop();
                 }
@@ -208,7 +208,7 @@ namespace UnityMergeTool
                 if (myFoundRemoved != null)
                 {
                     report.Push(myFoundRemoved.LogString(), myFoundRemoved.ScenePath);
-                    var takeTheirs = report.Changed(myFoundRemoved, "Element removed in mine", false);
+                    var takeTheirs = report.Changed(myFoundRemoved,  false,"Element removed in mine", false);
                     report.Pop();
                     // Log the change
                     continue;
@@ -220,7 +220,7 @@ namespace UnityMergeTool
                 if (theyFoundRemoved != null)
                 {
                     report.Push(theyFoundRemoved.LogString(), theyFoundRemoved.ScenePath);
-                    var takeTheirs = report.Changed(theyFoundRemoved, "Element removed in theirs", true);
+                    var takeTheirs = report.Changed(theyFoundRemoved,  false,"Element removed in theirs", true);
                     report.Pop();
                     continue;
                 }
@@ -244,12 +244,12 @@ namespace UnityMergeTool
             // Handle anything added from either side
             foreach (var added in myAdded) {
                 report.Push(added.LogString(), added.ScenePath);
-                var takeTheirs = report.Changed(added, "Element added in mine", false);
+                var takeTheirs = report.Changed(added, false, "Element added in mine", false);
                 report.Pop();
             }
             foreach (var added in thierAdded) {
                 report.Push(added.LogString(), added.ScenePath);
-                var takeTheirs = report.Changed(added, "Element added in theirs", true);
+                var takeTheirs = report.Changed(added, false, "Element added in theirs", true);
                 report.Pop();
             }
             
