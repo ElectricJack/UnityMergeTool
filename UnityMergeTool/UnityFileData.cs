@@ -206,12 +206,25 @@ namespace UnityMergeTool
                 // Skip any that we removed
                 var myFoundRemoved = myRemoved.FirstOrDefault(item => item.Matches(baseData));
                 if (myFoundRemoved != null)
+                {
+                    report.Push(myFoundRemoved.LogString(), myFoundRemoved.ScenePath);
+                    var takeTheirs = report.Changed(myFoundRemoved, "Element removed in mine", false);
+                    report.Pop();
+                    // Log the change
                     continue;
+                }
+                    
                 
                 // Skip any that they removed
                 var theyFoundRemoved = thierRemoved.FirstOrDefault(item => item.Matches(baseData));
                 if (theyFoundRemoved != null)
+                {
+                    report.Push(theyFoundRemoved.LogString(), theyFoundRemoved.ScenePath);
+                    var takeTheirs = report.Changed(theyFoundRemoved, "Element removed in theirs", true);
+                    report.Pop();
                     continue;
+                }
+                    
 
                 // Add to shared list
                 shared.Add(baseData);
@@ -226,6 +239,18 @@ namespace UnityMergeTool
                 var foundInTheirs = thierData.First(item => item.Matches(sharedData));
 
                 foundInMine.Merge(foundInBase, foundInTheirs, report);
+            }
+            
+            // Handle anything added from either side
+            foreach (var added in myAdded) {
+                report.Push(added.LogString(), added.ScenePath);
+                var takeTheirs = report.Changed(added, "Element added in mine", false);
+                report.Pop();
+            }
+            foreach (var added in thierAdded) {
+                report.Push(added.LogString(), added.ScenePath);
+                var takeTheirs = report.Changed(added, "Element added in theirs", true);
+                report.Pop();
             }
             
             // Add anything new from theirs to mine, there will be no conflicts here

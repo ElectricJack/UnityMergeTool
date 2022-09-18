@@ -239,6 +239,37 @@ namespace UnityMergeTool
             LogMergableConflict(conflicted, message);
             return false;
         }
+        
+        public bool Changed(IMergable modified, string message, bool takeTheirs)
+        {
+            // if (_applyReport)
+            // {
+            //     if (_activeItem != null)
+            //     {
+            //         var match = _activeItem.report.FirstOrDefault(item => item.ident.Equals(modified.LogString()));
+            //         if (match != null) {
+            //             return match.takeTheirs;
+            //         }
+            //     }
+            //     // Default to take theirs if we don't have this in the report
+            //     return true;
+            // }
+
+            LogChange(modified, message, takeTheirs);
+            return false;
+        }
+
+        private void LogChange(IMergable modified, string message, bool takeTheirs)
+        {
+            _activeItem.report.Add(new ChangeLog()
+            {
+                ident       = modified.LogString(),
+                conflict   = false,
+                message    = message,
+                takeTheirs = takeTheirs
+            });
+        }
+        
         public bool PropertyChange<T>(string propertyName, DiffableProperty<T> mine, DiffableProperty<T> thiers)
         {
             if (_applyReport)
@@ -260,17 +291,12 @@ namespace UnityMergeTool
                     return true; // Take theirs on unresolved conflict 
                 }
                 
-                if (mine.valueChanged && mine.oldValue != null)
+                if (mine.valueChanged)
                 {
                     return false; // Default to theirs
                 }
 
-                if (thiers.valueChanged && thiers.oldValue != null)
-                {
-                    return true; // Default to ours
-                }
-
-                return false;
+                return true; // Default to ours
             }
 
             LogPropertyChange(propertyName, mine, thiers);
@@ -301,8 +327,8 @@ namespace UnityMergeTool
                 {
                     ident       = propertyName,
                     conflict   = false,
-                    message    = $"Property added in theirs - {thiers.value}",
-                    takeTheirs = true // Default to theirs (mine doesn't exist)
+                    message    = $"Property removed in mine - {thiers.value}",
+                    takeTheirs = false
                 });
                 
                 return;
@@ -320,8 +346,8 @@ namespace UnityMergeTool
                 {
                     ident       = propertyName,
                     conflict   = false,
-                    message    = $"Property added in mine - {mine.value}",
-                    takeTheirs = false // Default to ours (theirs doesn't exist)
+                    message    = $"Property removed in thiers - {mine.value}",
+                    takeTheirs = true 
                 });
                 
                 return;
@@ -333,24 +359,24 @@ namespace UnityMergeTool
                 return; 
             }
             
-            if (mine.valueChanged && mine.oldValue != null)
+            if (mine.valueChanged)
             {
                 _activeItem.report.Add(new ChangeLog()
                 {
                     ident       = propertyName,
                     conflict   = false,
-                    message    = $"Property modified in mine - new: {mine.value} old: {mine.oldValue}",
+                    message    = mine.oldValue != null? $"Property modified in mine - new: {mine.value} old: {mine.oldValue}" : $"Property added in mine - {mine.value}",
                     takeTheirs = false // Default to ours
                 });
             }
 
-            if (thiers.valueChanged && thiers.oldValue != null)
+            if (thiers.valueChanged)
             {
                 _activeItem.report.Add(new ChangeLog()
                 {
                     ident       = propertyName,
                     conflict   = false,
-                    message    = $"Property modified in theirs '{propertyName}' - new: {thiers.value} old: {thiers.oldValue}",
+                    message    = thiers.oldValue != null? $"Property modified in theirs - new: {thiers.value} old: {thiers.oldValue}" : $"Property added in theirs - {thiers.value}",
                     takeTheirs = true // Default to theirs?
                 });
             }

@@ -40,8 +40,9 @@ namespace UnityMergeTool
 
         public override void Merge(object baseObj, object thiersObj, MergeReport report)
         {
-            var conflictReportLines = new List<string>();
+            report.Push(LogString(), ScenePath);
             MergeYamlProperties(thiersObj, report);
+            report.Pop();
         }
     }
 }
