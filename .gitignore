@@ -1,6 +1,7 @@
 .idea
 packages
 UnityMergeTool.sln.DotSettings.user
+UnityMergeTool/Scenes
 UnityMergeTool/obj
 UnityMergeTool/bin
 .vs/UnityMergeTool/xs/UserPrefs.xml
