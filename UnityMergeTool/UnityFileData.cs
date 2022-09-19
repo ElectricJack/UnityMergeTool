@@ -98,6 +98,12 @@ namespace UnityMergeTool
             _allDatas = MergeData(baseFile._allDatas, _allDatas, thierFile._allDatas, report);
             RebuildLinks();
             report.End();
+            
+            // @TODO: Take the newer of the two versions? In practice everything seems to use the same versions
+            //var mineYamlChanged   = baseFile._yamlVersionInfo != _yamlVersionInfo;
+            //var theirYamlChanged  = baseFile._yamlVersionInfo != thierFile._yamlVersionInfo;
+            //var mineUnityChanged  = baseFile._unityVersionInfo != _unityVersionInfo;
+            //var theirUnityChanged = baseFile._unityVersionInfo != thierFile._unityVersionInfo;
 
             // Combine all the unity ref dictionaries for post processing step
             foreach (var item in baseFile._unityRefDict)
@@ -209,6 +215,7 @@ namespace UnityMergeTool
                 {
                     report.Push(myFoundRemoved.LogString(), myFoundRemoved.ScenePath);
                     var takeTheirs = report.Changed(myFoundRemoved,  false,"Element removed in mine", false);
+                    if (takeTheirs) toKeep.Add(myFoundRemoved);
                     report.Pop();
                     // Log the change
                     continue;
@@ -221,6 +228,7 @@ namespace UnityMergeTool
                 {
                     report.Push(theyFoundRemoved.LogString(), theyFoundRemoved.ScenePath);
                     var takeTheirs = report.Changed(theyFoundRemoved,  false,"Element removed in theirs", true);
+                    if (!takeTheirs) toKeep.Add(theyFoundRemoved);
                     report.Pop();
                     continue;
                 }
@@ -242,23 +250,38 @@ namespace UnityMergeTool
             }
             
             // Handle anything added from either side
+            var dontAdd = new List<T>();
             foreach (var added in myAdded) {
                 report.Push(added.LogString(), added.ScenePath);
                 var takeTheirs = report.Changed(added, false, "Element added in mine", false);
+                if (takeTheirs) dontAdd.Add(added);
                 report.Pop();
             }
+            foreach (var toRemove in dontAdd)
+                myData.Remove(toRemove);
+
+            dontAdd.Clear();
             foreach (var added in thierAdded) {
                 report.Push(added.LogString(), added.ScenePath);
                 var takeTheirs = report.Changed(added, false, "Element added in theirs", true);
+                if(!takeTheirs) dontAdd.Add(added);
                 report.Pop();
             }
+            foreach (var toRemove in dontAdd)
+                thierAdded.Remove(toRemove);
             
             // Add anything new from theirs to mine, there will be no conflicts here
             myData.AddRange(thierAdded);
             
-            // Add anything we decided to keep from removed
-            myData.AddRange(toKeep);
-            
+            // Add anything we decided to keep from removed, but don't add duplicate data
+            foreach (var item in toKeep)
+            {
+                var foundDuplicate = myData.FirstOrDefault(data => data.FileId == item.FileId);
+                if(foundDuplicate != null) continue;
+                
+                myData.Add(item);
+            }
+
             return myData;
         }
         private static void FindAddedAndRemoved<T>(List<T> baseData, List<T> currentData, out List<T> added, out List<T> removed) where T : IMergable
@@ -328,9 +351,15 @@ namespace UnityMergeTool
                     _goDatas.Add(data);
                     _allDatas.Add(data);
                 }
-                else if (scalarNode.Value.Equals("Transform") || scalarNode.Value.Equals("RectTransform"))
+                else if (scalarNode.Value.Equals("Transform"))
                 {
                     var data = new TransformData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value, mapping.Tag.Value);
+                    _transDatas.Add(data);
+                    _allDatas.Add(data);
+                }
+                else if (scalarNode.Value.Equals("RectTransform"))
+                {
+                    var data = new RectTransformData().Load((YamlMappingNode) entry.Value, fileId, scalarNode.Value, mapping.Tag.Value);
                     _transDatas.Add(data);
                     _allDatas.Add(data);
                 }
@@ -381,12 +410,20 @@ namespace UnityMergeTool
             _allDatasById.Clear();
             _monosById.Clear();
             
+            // We have to clear and rebuild these incase items were deleted from allData during a merge
+            //  in that case these lists need to be updated
+            _transDatas.Clear();
+            _goDatas.Clear();
+            _unmappedDatas.Clear();
+            _monoDatas.Clear();
+            
             // Store all gameObjects, transforms and components by id first
             foreach (var allData in _allDatas)
             {
                 if (allData.GetType() == typeof(MonoBehaviorData))
                 {
                     var monoData = allData as MonoBehaviorData;
+                    _monoDatas.Add(monoData);
                     if (!_monosById.ContainsKey(monoData.fileId.value))
                     {
                         _monosById.Add(monoData.fileId.value, monoData);
@@ -395,9 +432,10 @@ namespace UnityMergeTool
                     else
                         Console.WriteLine($"Duplicate MonoBehaviour with id {monoData.fileId.value} found.");
                 }
-                else if (allData.GetType() == typeof(TransformData))
+                else if (allData.GetType() == typeof(TransformData) || allData.GetType() == typeof(RectTransformData) )
                 {
                     var transData = allData as TransformData;
+                    _transDatas.Add(transData);
                     if (!_transformsById.ContainsKey(transData.fileId.value))
                     {
                         _transformsById.Add(transData.fileId.value, transData);
@@ -409,6 +447,7 @@ namespace UnityMergeTool
                 else if (allData.GetType() == typeof(GameObjectData))
                 {
                     var gameObjectData = allData as GameObjectData;
+                    _goDatas.Add(gameObjectData);
                     if (!_gameObjectsById.ContainsKey(gameObjectData.fileId.value))
                     {
                         _gameObjectsById.Add(gameObjectData.fileId.value, gameObjectData);
@@ -416,6 +455,10 @@ namespace UnityMergeTool
                     }
                     else
                         Console.WriteLine($"Duplicate gameobject with id {gameObjectData.fileId.value} found.");
+                }
+                else if(allData.GetType() == typeof(UnmappedData))
+                {
+                    _unmappedDatas.Add(allData as UnmappedData);
                 }
             }
             
@@ -441,7 +484,20 @@ namespace UnityMergeTool
                 {
                     transData.parentRef = _transformsById[transData.parentId.fileId.value];
                 }
-
+                
+                // Find every child and make sure the parentId is set, some nodes do not serialize this, and we need this 
+                //  to correctly rebuild the child array
+                if (transData.childrenIds.value != null)
+                {
+                    foreach(var childId in transData.childrenIds.value)
+                    {
+                        var foundChild = _transDatas.FirstOrDefault(data => data.fileId.value == childId);
+                        if (foundChild != null)
+                        {
+                            foundChild.parentId.fileId.value = transData.FileId;    
+                        }
+                    }
+                }
             }
 
             foreach (var transData in _transDatas)

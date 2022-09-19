@@ -53,7 +53,7 @@ namespace UnityMergeTool
         public void LoadReport(string reportFile)
         {
             var matchPath = new Regex("([\\s]+)\\/(.*)", RegexOptions.Singleline | RegexOptions.Compiled);
-            var matchPathWithOverride = new Regex("([\\s]+)\\/(.*)\\[OVERRIDE: (MINE|THEIRS)\\]", RegexOptions.Singleline | RegexOptions.Compiled);
+            var matchPathWithOverride = new Regex("([\\s]*)\\/(.*)\\[OVERRIDE: (MINE|THEIRS)\\]", RegexOptions.Singleline | RegexOptions.Compiled);
             var matchLog  = new Regex("([\\s]+)((\\[THEIRS\\] |\\[MINE\\] |\\[CONFLICT\\] )+)'(.+)'(.*)", RegexOptions.Singleline | RegexOptions.Compiled);
             
             _stack.Add(_root);
@@ -63,7 +63,7 @@ namespace UnityMergeTool
             int  overrideBelowIndent = -1;
             
             var lines = File.ReadAllText(reportFile).Split("\n");
-            for (int i = 1; i < lines.Length; ++i)
+            for (int i = 0; i < lines.Length; ++i)
             {
                 var line = lines[i];
                 Match lineMatch;
@@ -83,7 +83,7 @@ namespace UnityMergeTool
                 if (lineMatch.Success)
                 {
                     var indentLevel = lineMatch.Groups[1].Value.Length / 4;
-                    if (indentLevel < _stack.Count)
+                    if (indentLevel > 0 && indentLevel < _stack.Count)
                     {
                         while (indentLevel < _stack.Count)
                             _stack.RemoveAt(_stack.Count-1);

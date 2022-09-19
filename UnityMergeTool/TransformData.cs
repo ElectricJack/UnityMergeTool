@@ -126,4 +126,12 @@ namespace UnityMergeTool
             report.Pop();
         }
     }
+
+    class RectTransformData : TransformData
+    {
+        public override string LogString()
+        {
+            return "RectTransform " + fileId.value;
+        }
+    }
 }
