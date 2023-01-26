@@ -4,3 +4,7 @@ cd UnityMergeTool/bin/Release/netcoreapp3.1
 mv osx.11.0-x64 UnityMergeToolRelease
 zip -r UnityMergeToolRelease.zip UnityMergeToolRelease
 rm -rf UnityMergeToolRelease
+
+rm ~/Desktop/UnityMergeToolRelease.zip
+rm -rf ~/Desktop/UnityMergeToolRelease
+cp ./UnityMergeToolRelease.zip ~/Desktop

@@ -38,6 +38,19 @@ namespace UnityMergeTool
         
         public UnityFileData() {}
         public UnityFileData(string path) { LoadFile(path); }
+
+
+        private string GetPathWithoutHash(string path)
+        {
+            Regex pathRegex = new Regex(@"(.*)(_[0-9]+)(\..*)");
+            var match = pathRegex.Match(path);
+            if (match.Success)
+            {
+                return match.Groups[1].Value + match.Groups[3].Value;    
+            }
+
+            return path;
+        }
         
 
         public void LoadFile(string path)
@@ -48,16 +61,60 @@ namespace UnityMergeTool
                 Console.WriteLine("Input file doesn't exist");
                 return;
             }
+
+            var parseLog = new StringBuilder();
             
             // PreProcess and load the file
             _yaml = new YamlStream();
-            var processedLines = PreProcessUnityYAML(File.ReadAllText(path));
+
+            // Load the previously saved off file instead of the file generated for this 
+            //  diff it exists. If this exists it means we wanted to make an edit of the file.
+            var noHashPath = GetPathWithoutHash(path);
+            if (File.Exists($"{noHashPath}.txt"))
+                path = $"{noHashPath}.txt";
+            
+            var fileString = File.ReadAllText(path);
+            var processedLines = PreProcessUnityYAML(fileString);
             using (var reader = new StringReader(processedLines))
             {
-                _yaml.Load(reader);
-                
-                // Process yaml here into internal node representation
-                LoadYamlStream();
+                try
+                {
+                    _yaml.Load(reader);
+                    
+                    // Process yaml here into internal node representation
+                    LoadYamlStream();
+                }
+                catch (Exception e)
+                {
+                    parseLog.AppendLine($"Error Parsing: {path}\n");
+                    parseLog.AppendLine(e.Message);
+                    parseLog.AppendLine(e.StackTrace);
+
+                    if (e.Message.Contains("Line:"))
+                    {
+                        Regex lineNumberRegex = new Regex(@"Line:\s(\d+)");
+                        Match match = lineNumberRegex.Match(e.Message);
+                        
+                        if (match.Success) {
+                            int lineNumber = int.Parse(match.Groups[1].Value);
+                            var lines = processedLines.Split("\n");
+
+                            parseLog.AppendLine("\n");
+
+                            var startLine = Math.Max(0, lineNumber - 5);
+                            var endLine = Math.Min(lineNumber + 5, lines.Length);
+                            for (int i = startLine; i < endLine; ++i)
+                            {
+                                parseLog.AppendLine($"{i+1}: {lines[i]}");
+                            }
+                        }
+                    }
+                    
+                    File.WriteAllText($"{noHashPath}.parse-error.txt", parseLog.ToString());
+                    File.WriteAllText($"{noHashPath}.txt", fileString);
+
+                    throw;
+                }
             }
         }
 

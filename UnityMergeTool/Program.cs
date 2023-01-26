@@ -6,6 +6,8 @@ namespace UnityMergeTool
     internal class Program
     {
         private static readonly string[] testPrefabs = new string[] {
+            "PortraitSlotsUI",
+            "SlotsUI",
             "BetGroup",		
             "BuyFrame",
             "Concierge_Canopy",		
@@ -68,7 +70,7 @@ namespace UnityMergeTool
             }
             else if (args[0].Equals("test"))
             {
-                int i = 9;
+                int i = 0;
                 //for (int i = 0; i < testPrefabs.Length; ++i)
                 {
                     var name = testPrefabs[i];
